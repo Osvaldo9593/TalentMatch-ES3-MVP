@@ -411,6 +411,7 @@ export const JobOfferDetailPage: React.FC = () => {
             onDeleteCV={(cv) => setCvToDelete(cv)}
             onViewDetail={(cvId) => setPreviewCvId(cvId)}
             onViewEvaluation={handleViewEvaluation}
+            onCVsRefresh={setCvs}
           />
         </div>
       </div>

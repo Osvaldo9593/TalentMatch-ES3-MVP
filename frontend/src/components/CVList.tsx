@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CandidateCV } from '../types/candidateCv';
 import { candidateCvService } from '../services/candidateCvService';
 
@@ -10,6 +10,7 @@ interface CVListProps {
   onDeleteCV: (cv: CandidateCV) => void;
   onViewDetail: (cvId: number) => void;
   onViewEvaluation: (cv: CandidateCV) => void;
+  onCVsRefresh?: (cvs: CandidateCV[]) => void;
   onEvaluateCV?: (cv: CandidateCV) => void;
   onBatchEvaluate?: () => void;
 }
@@ -25,7 +26,34 @@ export const CVList: React.FC<CVListProps> = ({
   onDeleteCV,
   onViewDetail,
   onViewEvaluation,
+  onCVsRefresh,
 }) => {
+  const hasPendingEvaluations = cvs.some(
+    (cv) =>
+      !cv.evaluation &&
+      ['uploaded', 'processing', 'processed'].includes(cv.processing_status)
+  );
+
+  useEffect(() => {
+    if (!hasPendingEvaluations || !onCVsRefresh) return;
+
+    let isActive = true;
+    const refreshCVs = async () => {
+      try {
+        const updatedCvs = await candidateCvService.getCVsByJobOffer(jobOfferId);
+        if (isActive) onCVsRefresh(updatedCvs);
+      } catch (error) {
+        console.error('Error actualizando el estado de evaluación de CVs:', error);
+      }
+    };
+
+    const intervalId = window.setInterval(refreshCVs, 5000);
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [hasPendingEvaluations, jobOfferId, onCVsRefresh]);
+
   // Search, filter, and sort state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -371,8 +399,8 @@ export const CVList: React.FC<CVListProps> = ({
                           </span>
                         ) : cv.processing_status === 'processed' ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium font-mono bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#B45309]" />
-                            Pendiente de evaluación
+                            <span className="w-2.5 h-2.5 border-2 border-[#B45309] border-t-transparent rounded-full animate-spin" />
+                            Procesando CV con IA... ⏳
                           </span>
                         ) : cv.processing_status === 'failed' ? (
                           <span
@@ -385,7 +413,7 @@ export const CVList: React.FC<CVListProps> = ({
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium font-mono bg-[#E1F3FE] text-[#1F6C9F] border border-[#C7E6FD]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#1F6C9F] animate-pulse" />
-                            Procesando
+                            Procesando CV con IA... ⏳
                           </span>
                         )}
                       </td>

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { DashboardStats } from '../components/DashboardStats';
 import { CVList } from '../components/CVList';
 import { CVEvaluationDetailModal } from '../components/CVEvaluationDetailModal';
 import { CandidateCV } from '../types/candidateCv';
 import { CandidateEvaluation } from '../types/candidateEvaluation';
+import { candidateCvService } from '../services/candidateCvService';
 
 // Mock mock CVs
 const mockCvs: CandidateCV[] = [
@@ -157,7 +158,7 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
   });
 
   // 4. Pending CVs show automatic processing status without manual action
-  it('4. Los CVs procesados pendientes muestran "Pendiente de evaluación" sin botón manual', () => {
+  it('4. Los CVs procesados pendientes muestran el indicador de procesamiento sin botón manual', () => {
     render(
       <CVList
         cvs={mockCvs}
@@ -171,8 +172,38 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
       />
     );
 
-    expect(screen.getByText('Pendiente de evaluación')).toBeDefined();
+    expect(screen.getByText(/Procesando CV con IA/)).toBeDefined();
     expect(screen.queryByRole('button', { name: /evaluar/i })).toBeNull();
+  });
+
+  it('4b. Actualiza automáticamente los CVs pendientes cada cinco segundos', async () => {
+    vi.useFakeTimers();
+    const refresh = vi.fn();
+    const getCVsByJobOffer = vi
+      .spyOn(candidateCvService, 'getCVsByJobOffer')
+      .mockResolvedValue(mockCvs);
+
+    render(
+      <CVList
+        cvs={mockCvs}
+        jobOfferId={10}
+        isLoading={false}
+        onDeleteCV={vi.fn()}
+        onViewDetail={vi.fn()}
+        onViewEvaluation={vi.fn()}
+        onCVsRefresh={refresh}
+      />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+
+    expect(getCVsByJobOffer).toHaveBeenCalledWith(10);
+    expect(refresh).toHaveBeenCalledWith(mockCvs);
+    getCVsByJobOffer.mockRestore();
+    vi.useRealTimers();
   });
 
   // 5. Failed CVs show Error de procesamiento
