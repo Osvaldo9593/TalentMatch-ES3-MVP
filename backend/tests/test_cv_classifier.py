@@ -8,6 +8,8 @@ from app.models.job_offer import JobOffer
 from app.models.candidate_cv import CandidateCV
 from app.models.candidate_evaluation import CandidateEvaluation
 from app.services.openrouter_service import openrouter_service
+from app.api.v1.endpoints import cvs as cvs_endpoint
+from tests.test_candidate_cvs import create_minimal_text_pdf_bytes
 
 
 @pytest.fixture
@@ -55,6 +57,8 @@ def sample_candidate_cv(db_session: Session, sample_job_offer: JobOffer) -> Cand
 VALID_AI_EVALUATION_JSON = json.dumps({
     "score": 85,
     "recommendation": "recommended",
+    "experience_range": "3-5",
+    "education_level": "profesional",
     "matched_required_skills": ["Python", "FastAPI", "PostgreSQL"],
     "missing_required_skills": [],
     "matched_preferred_skills": ["Docker", "Git"],
@@ -64,7 +68,7 @@ VALID_AI_EVALUATION_JSON = json.dumps({
 })
 
 
-def test_evaluate_cv_success(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV, db_session: Session):
+def test_evaluate_cv_success(client: TestClient, sample_job_offer: JobOffer, db_session: Session):
     """
     Prueba 1: CV procesado + oferta válida -> evaluación exitosa y persistencia en DB.
     """
@@ -75,24 +79,22 @@ def test_evaluate_cv_success(client: TestClient, sample_job_offer: JobOffer, sam
         "content": f"```json\n{VALID_AI_EVALUATION_JSON}\n```"
     }
 
-    with patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
+    pdf_bytes = create_minimal_text_pdf_bytes(["Candidato", "4 años de experiencia", "Ingeniero en Informática"])
+    with patch.object(cvs_endpoint, "SessionLocal", return_value=db_session), \
+         patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
         mock_generate.return_value = mock_response
 
-        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/{sample_candidate_cv.id}/evaluate")
-        assert response.status_code == 200
+        response = client.post(
+            f"/api/v1/job-offers/{sample_job_offer.id}/cvs/",
+            files={"file": ("candidate.pdf", pdf_bytes, "application/pdf")},
+        )
+        assert response.status_code == 201
         data = response.json()
-
-        assert data["score"] == 85
-        assert data["recommendation"] == "recommended"
-        assert "Python" in data["matched_required_skills"]
-        assert "FastAPI" in data["matched_required_skills"]
-        assert "PostgreSQL" in data["matched_required_skills"]
-        assert "Docker" in data["matched_preferred_skills"]
-        assert data["model_used"] == "openrouter/free"
-        assert data["cv_id"] == sample_candidate_cv.id
+        assert "segundo plano" in data["message"]
+        mock_generate.assert_awaited_once()
 
         # Verificar persistencia en base de datos
-        db_eval = db_session.query(CandidateEvaluation).filter_by(cv_id=sample_candidate_cv.id).first()
+        db_eval = db_session.query(CandidateEvaluation).filter_by(cv_id=data["id"]).first()
         assert db_eval is not None
         assert db_eval.score == 85
         assert db_eval.recommendation == "recommended"
@@ -116,9 +118,10 @@ def test_evaluate_cv_without_extracted_text(client: TestClient, sample_job_offer
     db_session.commit()
     db_session.refresh(empty_cv)
 
-    response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/{empty_cv.id}/evaluate")
-    assert response.status_code == 400
-    assert "no contiene texto extraído" in response.json()["detail"]
+    from app.services.cv_classifier_service import cv_classifier_service
+    with pytest.raises(Exception, match="no contiene texto extraído"):
+        import asyncio
+        asyncio.run(cv_classifier_service.evaluate_cv(db_session, sample_job_offer, empty_cv))
 
 
 def test_evaluate_cv_unprocessed_status(client: TestClient, sample_job_offer: JobOffer, db_session: Session):
@@ -139,40 +142,13 @@ def test_evaluate_cv_unprocessed_status(client: TestClient, sample_job_offer: Jo
     db_session.commit()
     db_session.refresh(unprocessed_cv)
 
-    response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/{unprocessed_cv.id}/evaluate")
-    assert response.status_code == 400
-    assert "no está en estado procesado" in response.json()["detail"]
+    from app.services.cv_classifier_service import cv_classifier_service
+    with pytest.raises(Exception, match="no está en estado procesado"):
+        import asyncio
+        asyncio.run(cv_classifier_service.evaluate_cv(db_session, sample_job_offer, unprocessed_cv))
 
 
-def test_evaluate_cv_not_found(client: TestClient, sample_job_offer: JobOffer):
-    """
-    Prueba 4: CV inexistente -> HTTP 404.
-    """
-    response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/99999/evaluate")
-    assert response.status_code == 404
-    assert "no encontrado" in response.json()["detail"]
-
-
-def test_evaluate_cv_wrong_job_offer(client: TestClient, sample_candidate_cv: CandidateCV, db_session: Session):
-    """
-    Prueba 5: CV perteneciente a otra oferta laboral -> HTTP 404.
-    """
-    other_offer = JobOffer(
-        title="Diseñador UI/UX",
-        description="Buscamos diseñador Figma.",
-        status="active",
-        required_skills=["Figma"],
-    )
-    db_session.add(other_offer)
-    db_session.commit()
-    db_session.refresh(other_offer)
-
-    response = client.post(f"/api/v1/job-offers/{other_offer.id}/cvs/{sample_candidate_cv.id}/evaluate")
-    assert response.status_code == 404
-    assert "no encontrado en la oferta laboral" in response.json()["detail"]
-
-
-def test_evaluate_cv_ai_invalid_json(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV):
+def test_evaluate_cv_ai_invalid_json(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV, db_session: Session):
     """
     Prueba 6: Respuesta de IA con JSON inválido o malformado -> HTTP 502 y sin persistencia parcial.
     """
@@ -183,21 +159,25 @@ def test_evaluate_cv_ai_invalid_json(client: TestClient, sample_job_offer: JobOf
         "content": "Lo siento, como modelo de lenguaje no puedo procesar este documento de manera estructurada."
     }
 
-    with patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
+    with patch.object(cvs_endpoint, "SessionLocal", return_value=db_session), \
+         patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
         mock_generate.return_value = mock_response
 
-        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/{sample_candidate_cv.id}/evaluate")
-        assert response.status_code == 502
-        assert "no contiene un formato JSON válido" in response.json()["detail"] or "inválida" in response.json()["detail"]
+        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/",
+                               files={"file": ("candidate.pdf", create_minimal_text_pdf_bytes(["Candidato"]), "application/pdf")})
+        assert response.status_code == 201
+        assert db_session.query(CandidateCV).filter_by(id=response.json()["id"]).one().error_message
 
 
-def test_evaluate_cv_ai_score_out_of_range(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV):
+def test_evaluate_cv_ai_score_out_of_range(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV, db_session: Session):
     """
     Prueba 7: Score devuelto por la IA fuera del rango 0-100 -> validación Pydantic falla con HTTP 502.
     """
     invalid_score_json = json.dumps({
         "score": 125,  # Fuera de rango
         "recommendation": "recommended",
+        "experience_range": "3-5",
+        "education_level": "profesional",
         "matched_required_skills": ["Python"],
         "missing_required_skills": [],
         "matched_preferred_skills": [],
@@ -213,15 +193,17 @@ def test_evaluate_cv_ai_score_out_of_range(client: TestClient, sample_job_offer:
         "content": invalid_score_json
     }
 
-    with patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
+    with patch.object(cvs_endpoint, "SessionLocal", return_value=db_session), \
+         patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
         mock_generate.return_value = mock_response
 
-        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/{sample_candidate_cv.id}/evaluate")
-        assert response.status_code == 502
-        assert "respuesta estructurada inválida" in response.json()["detail"]
+        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/",
+                               files={"file": ("candidate.pdf", create_minimal_text_pdf_bytes(["Candidato"]), "application/pdf")})
+        assert response.status_code == 201
+        assert db_session.query(CandidateCV).filter_by(id=response.json()["id"]).one().error_message
 
 
-def test_evaluate_cv_threshold_normalization(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV):
+def test_evaluate_cv_threshold_normalization(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV, db_session: Session):
     """
     Prueba 8: Normalización consistente de recomendaciones basada en los umbrales configurados.
     Si el score es 50 pero la IA devolvió "recommended", el backend normaliza a "not_recommended".
@@ -229,6 +211,8 @@ def test_evaluate_cv_threshold_normalization(client: TestClient, sample_job_offe
     divergent_json = json.dumps({
         "score": 50,  # Menor a 60
         "recommendation": "recommended",  # Inconsistente con score < 60
+        "experience_range": "0-2",
+        "education_level": "tecnico",
         "matched_required_skills": [],
         "missing_required_skills": ["Python", "FastAPI"],
         "matched_preferred_skills": [],
@@ -244,17 +228,19 @@ def test_evaluate_cv_threshold_normalization(client: TestClient, sample_job_offe
         "content": divergent_json
     }
 
-    with patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
+    with patch.object(cvs_endpoint, "SessionLocal", return_value=db_session), \
+         patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
         mock_generate.return_value = mock_response
 
-        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/{sample_candidate_cv.id}/evaluate")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["score"] == 50
-        assert data["recommendation"] == "not_recommended"
+        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/",
+                               files={"file": ("candidate.pdf", create_minimal_text_pdf_bytes(["Candidato"]), "application/pdf")})
+        assert response.status_code == 201
+        evaluation = db_session.query(CandidateEvaluation).filter_by(cv_id=response.json()["id"]).one()
+        assert evaluation.score == 50
+        assert evaluation.recommendation == "not_recommended"
 
 
-def test_evaluate_cv_openrouter_error(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV):
+def test_evaluate_cv_openrouter_error(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV, db_session: Session):
     """
     Prueba 9: Error de conexión o autenticación de OpenRouter -> HTTP 502 sin filtrar credenciales.
     """
@@ -265,12 +251,14 @@ def test_evaluate_cv_openrouter_error(client: TestClient, sample_job_offer: JobO
         "error": "Error de autenticación con OpenRouter: API Key inválida o sin permisos."
     }
 
-    with patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
+    with patch.object(cvs_endpoint, "SessionLocal", return_value=db_session), \
+         patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
         mock_generate.return_value = mock_response
 
-        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/{sample_candidate_cv.id}/evaluate")
-        assert response.status_code == 502
-        assert "Error al evaluar con OpenRouter" in response.json()["detail"]
+        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/cvs/",
+                               files={"file": ("candidate.pdf", create_minimal_text_pdf_bytes(["Candidato"]), "application/pdf")})
+        assert response.status_code == 201
+        assert db_session.query(CandidateCV).filter_by(id=response.json()["id"]).one().error_message
 
 
 def test_get_cv_evaluation_endpoint(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV, db_session: Session):
@@ -287,6 +275,8 @@ def test_get_cv_evaluation_endpoint(client: TestClient, sample_job_offer: JobOff
         cv_id=sample_candidate_cv.id,
         score=90,
         recommendation="recommended",
+        experience_range="5+",
+        education_level="postgrado",
         matched_required_skills=["Python", "FastAPI"],
         missing_required_skills=[],
         matched_preferred_skills=["Docker"],
@@ -308,47 +298,3 @@ def test_get_cv_evaluation_endpoint(client: TestClient, sample_job_offer: JobOff
         assert data["summary"] == "Candidato sobresaliente"
         # Comprobar que OpenRouter NO fue llamado
         mock_generate.assert_not_called()
-
-
-def test_batch_evaluate_job_offer_cvs(client: TestClient, sample_job_offer: JobOffer, sample_candidate_cv: CandidateCV, db_session: Session):
-    """
-    Prueba 11: Endpoint masivo de evaluación evalúa secuencialmente y maneja CVs omitidos/fallidos.
-    """
-    # Agregar un segundo CV sin procesar (debe ser omitido 'skipped')
-    skipped_cv = CandidateCV(
-        job_offer_id=sample_job_offer.id,
-        original_filename="cv_incompleto.pdf",
-        stored_filename="uuid-cv-incompleto.pdf",
-        file_path="storage/cvs/uuid-cv-incompleto.pdf",
-        file_size=1024,
-        mime_type="application/pdf",
-        extracted_text=None,
-        processing_status="failed",
-    )
-    db_session.add(skipped_cv)
-    db_session.commit()
-
-    mock_response = {
-        "status": "ok",
-        "provider": "openrouter",
-        "model": "openrouter/free",
-        "content": VALID_AI_EVALUATION_JSON
-    }
-
-    with patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_generate:
-        mock_generate.return_value = mock_response
-
-        response = client.post(f"/api/v1/job-offers/{sample_job_offer.id}/evaluate")
-        assert response.status_code == 200
-        results = response.json()
-
-        assert len(results) == 2
-        success_item = next((r for r in results if r["cv_id"] == sample_candidate_cv.id), None)
-        skipped_item = next((r for r in results if r["cv_id"] == skipped_cv.id), None)
-
-        assert success_item is not None
-        assert success_item["status"] == "success"
-        assert success_item["score"] == 85
-
-        assert skipped_item is not None
-        assert skipped_item["status"] == "skipped"

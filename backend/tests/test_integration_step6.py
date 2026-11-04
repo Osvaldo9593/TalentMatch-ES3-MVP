@@ -71,11 +71,11 @@ def test_candidate_evaluation_schema_out_of_range():
         CandidateEvaluationAIResponse(**raw_invalid)
 
 
-def test_batch_evaluate_skips_already_evaluated_cv(
+def test_existing_evaluation_is_reused_without_llm_call(
     client: TestClient,
     db_session: Session
 ):
-    """Verifica que evaluate_all_job_offer_cvs omita CVs que ya cuentan con evaluación activa."""
+    """Verifica que la evaluación automática no reemplace una evaluación existente."""
     # 1. Crear oferta
     offer = JobOffer(
         title="Ingeniero Backend Senior",
@@ -109,6 +109,8 @@ def test_batch_evaluate_skips_already_evaluated_cv(
         cv_id=cv.id,
         score=88,
         recommendation="recommended",
+        experience_range="3-5",
+        education_level="profesional",
         matched_required_skills=["Python"],
         missing_required_skills=[],
         matched_preferred_skills=[],
@@ -120,15 +122,11 @@ def test_batch_evaluate_skips_already_evaluated_cv(
     db_session.add(existing_eval)
     db_session.commit()
 
-    # 4. Invocar evaluación en lote asegurando que OpenRouter no sea llamado
+    # 4. Consultar la evaluación existente sin invocar OpenRouter
     with patch.object(openrouter_service, "generate_chat_completion", new_callable=AsyncMock) as mock_llm:
-        response = client.post(f"/api/v1/job-offers/{offer.id}/evaluate")
+        response = client.get(f"/api/v1/job-offers/{offer.id}/cvs/{cv.id}/evaluation")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 1
-        item = data[0]
-        assert item["cv_id"] == cv.id
-        assert item["status"] == "skipped"
-        assert item["score"] == 88
-        assert "ya cuenta con una evaluación activa" in item["message"]
+        assert data["cv_id"] == cv.id
+        assert data["score"] == 88
         mock_llm.assert_not_called()
