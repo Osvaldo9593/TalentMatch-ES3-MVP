@@ -87,10 +87,10 @@ export const CVEvaluationDetailModal: React.FC<CVEvaluationDetailModalProps> = (
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
-          {isLoading ? (
+          {isLoading || (!evaluation && !error) ? (
             <div className="py-12 text-center space-y-3">
               <div className="w-8 h-8 border-2 border-[#111111] border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs text-[#666666] font-mono">Cargando análisis de compatibilidad...</p>
+              <p className="text-xs text-[#666666] font-mono">La evaluación se está procesando en segundo plano...</p>
             </div>
           ) : error ? (
             <div className="p-4 bg-[#FDEBEC] border border-[#F9D2D4] rounded-lg text-[#9F2F2D] space-y-1">
