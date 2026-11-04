@@ -68,6 +68,8 @@ class CVClassifierService:
             "Eres un asistente experto en reclutamiento y selección de talento para evaluación preliminar de currículums (CVs).\n"
             "Tu tarea es analizar la compatibilidad técnica y profesional entre una oferta laboral y el CV de un candidato.\n\n"
             "REGLAS OBLIGATORIAS:\n"
+            "0. IDIOMA: Toda la evaluación, incluyendo análisis, resumen y razones, DEBE estar escrita obligatoriamente en español. "
+            "No traduzcas nombres propios ni tecnologías; conserva nombres como 'FastAPI' y 'Python'.\n"
             "1. CERO SESGOS: Evalúa ÚNICAMENTE competencias laborales y técnicas directamente relacionadas con el cargo. "
             "Ignora por completo edad, género, nacionalidad, estado civil, religión, dirección particular, apariencia o situación familiar. "
             "Bajo ningún concepto estos factores deben influir en el puntaje o la recomendación.\n"

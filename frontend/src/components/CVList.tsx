@@ -96,10 +96,10 @@ export const CVList: React.FC<CVListProps> = ({
         if (cv.evaluation?.recommendation !== recommendationFilter) {
           return false;
         }
-
-        if (experienceFilter !== 'all' && cv.evaluation?.experience_range !== experienceFilter) return false;
-        if (educationFilter !== 'all' && cv.evaluation?.education_level !== educationFilter) return false;
       }
+
+      if (experienceFilter !== 'all' && cv.evaluation?.experience_range !== experienceFilter) return false;
+      if (educationFilter !== 'all' && cv.evaluation?.education_level !== educationFilter) return false;
 
       return true;
     });

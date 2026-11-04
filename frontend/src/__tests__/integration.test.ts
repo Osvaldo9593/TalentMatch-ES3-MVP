@@ -63,18 +63,18 @@ describe('Frontend Services Integration & Error Handling', () => {
     );
   });
 
-  it('candidateEvaluationService handles OpenRouter unavailable errors without freezing', async () => {
+  it('candidateEvaluationService handles missing evaluations without freezing', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 502,
       statusText: 'Bad Gateway',
       json: async () => ({
-        detail: 'Error al evaluar con OpenRouter: Tiempo de espera agotado al conectar con OpenRouter.',
+        detail: 'El currículum aún no ha sido evaluado.',
       }),
     } as any);
 
-    await expect(candidateEvaluationService.evaluateCV(1, 10)).rejects.toThrow(
-      'Error al evaluar con OpenRouter: Tiempo de espera agotado al conectar con OpenRouter.'
+    await expect(candidateEvaluationService.getEvaluation(1, 10)).rejects.toThrow(
+      'El currículum aún no ha sido evaluado.'
     );
   });
 });
