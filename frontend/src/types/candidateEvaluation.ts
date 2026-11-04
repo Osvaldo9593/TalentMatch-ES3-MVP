@@ -1,10 +1,14 @@
 export type EvaluationRecommendation = 'recommended' | 'review' | 'not_recommended';
+export type ExperienceRange = '0-2' | '3-5' | '5+';
+export type EducationLevel = 'tecnico' | 'profesional' | 'postgrado';
 
 export interface CandidateEvaluation {
   id: number;
   cv_id: number;
   score: number;
   recommendation: EvaluationRecommendation;
+  experience_range?: ExperienceRange;
+  education_level?: EducationLevel;
   matched_required_skills: string[];
   missing_required_skills: string[];
   matched_preferred_skills: string[];
@@ -20,6 +24,8 @@ export interface CandidateEvaluationSummary {
   id: number;
   score: number;
   recommendation: EvaluationRecommendation;
+  experience_range?: ExperienceRange;
+  education_level?: EducationLevel;
   created_at: string;
 }
 

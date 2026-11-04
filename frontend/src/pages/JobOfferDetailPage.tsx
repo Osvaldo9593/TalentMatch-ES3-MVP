@@ -34,8 +34,6 @@ export const JobOfferDetailPage: React.FC = () => {
   const [isDeletingCV, setIsDeletingCV] = useState<boolean>(false);
 
   // AI Evaluation State
-  const [evaluatingCvId, setEvaluatingCvId] = useState<number | null>(null);
-  const [isBatchEvaluating, setIsBatchEvaluating] = useState<boolean>(false);
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState<boolean>(false);
   const [selectedEvaluation, setSelectedEvaluation] = useState<CandidateEvaluation | null>(null);
   const [selectedEvaluationCvFilename, setSelectedEvaluationCvFilename] = useState<string | undefined>(undefined);
@@ -94,7 +92,7 @@ export const JobOfferDetailPage: React.FC = () => {
   const handleUploadSuccess = (newCv: CandidateCV) => {
     setCvs((prev) => [newCv, ...prev.filter((item) => item.id !== newCv.id)]);
     setToast({
-      message: `CV "${newCv.original_filename}" cargado y procesado exitosamente.`,
+      message: newCv.message || `CV "${newCv.original_filename}" cargado y enviado a evaluación automática.`,
       type: 'success',
     });
   };
@@ -120,51 +118,6 @@ export const JobOfferDetailPage: React.FC = () => {
     }
   };
 
-  // Handler: Evaluar un CV individual con IA
-  const handleEvaluateCV = async (cv: CandidateCV) => {
-    if (!offer) return;
-    setEvaluatingCvId(cv.id);
-    try {
-      const evaluationResult = await candidateEvaluationService.evaluateCV(offer.id, cv.id);
-
-      // Actualizar estado local del CV con el nuevo resumen de evaluación
-      setCvs((prev) =>
-        prev.map((item) =>
-          item.id === cv.id
-            ? {
-                ...item,
-                evaluation: {
-                  id: evaluationResult.id,
-                  score: evaluationResult.score,
-                  recommendation: evaluationResult.recommendation,
-                  created_at: evaluationResult.created_at,
-                },
-              }
-            : item
-        )
-      );
-
-      // Mostrar modal de detalle con el resultado
-      setSelectedEvaluation(evaluationResult);
-      setSelectedEvaluationCvFilename(cv.original_filename);
-      setEvaluationModalError(null);
-      setIsLoadingEvaluationModal(false);
-      setIsEvaluationModalOpen(true);
-
-      setToast({
-        message: `Evaluación completada para "${cv.original_filename}": ${evaluationResult.score}/100.`,
-        type: 'success',
-      });
-    } catch (err: any) {
-      setToast({
-        message: err.message || 'Error al evaluar el currículum con IA.',
-        type: 'error',
-      });
-    } finally {
-      setEvaluatingCvId(null);
-    }
-  };
-
   // Handler: Ver detalle de evaluación guardada
   const handleViewEvaluation = async (cv: CandidateCV) => {
     if (!offer) return;
@@ -181,41 +134,6 @@ export const JobOfferDetailPage: React.FC = () => {
       setEvaluationModalError(err.message || 'No fue posible cargar la evaluación.');
     } finally {
       setIsLoadingEvaluationModal(false);
-    }
-  };
-
-  // Handler: Evaluar todos los CVs pendientes en lote
-  const handleBatchEvaluate = async () => {
-    if (!offer) return;
-    const pendingCvs = cvs.filter((c) => c.processing_status === 'processed' && !c.evaluation);
-    if (pendingCvs.length === 0) {
-      setToast({
-        message: 'Todos los CVs procesados ya cuentan con una evaluación activa.',
-        type: 'info',
-      });
-      return;
-    }
-
-    setIsBatchEvaluating(true);
-    try {
-      const batchResults = await candidateEvaluationService.evaluateAllCVs(offer.id);
-      const successfulCount = batchResults.filter((r) => r.status === 'success').length;
-
-      // Recargar lista completa de CVs con evaluaciones actualizadas
-      const updatedCvs = await candidateCvService.getCVsByJobOffer(offer.id);
-      setCvs(updatedCvs);
-
-      setToast({
-        message: `Evaluación en lote finalizada: ${successfulCount} CV(s) evaluado(s) exitosamente.`,
-        type: 'success',
-      });
-    } catch (err: any) {
-      setToast({
-        message: err.message || 'Error al ejecutar la evaluación en lote.',
-        type: 'error',
-      });
-    } finally {
-      setIsBatchEvaluating(false);
     }
   };
 
@@ -472,29 +390,6 @@ export const JobOfferDetailPage: React.FC = () => {
               {evaluatedCount} / {cvs.length} evaluados
             </span>
 
-            {pendingEvaluationCount > 0 && (
-              <button
-                type="button"
-                onClick={handleBatchEvaluate}
-                disabled={isBatchEvaluating || evaluatingCvId !== null}
-                className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium font-mono text-white bg-[#111111] hover:bg-[#333333] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                title="Evaluar secuencialmente todos los CVs pendientes de esta oferta"
-              >
-                {isBatchEvaluating ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Evaluando lote...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span>Evaluar pendientes ({pendingEvaluationCount})</span>
-                  </>
-                )}
-              </button>
-            )}
           </div>
         </div>
 
@@ -513,12 +408,9 @@ export const JobOfferDetailPage: React.FC = () => {
             cvs={cvs}
             jobOfferId={offer.id}
             isLoading={isLoadingCVs}
-            evaluatingCvId={evaluatingCvId}
             onDeleteCV={(cv) => setCvToDelete(cv)}
             onViewDetail={(cvId) => setPreviewCvId(cvId)}
-            onEvaluateCV={handleEvaluateCV}
             onViewEvaluation={handleViewEvaluation}
-            onBatchEvaluate={handleBatchEvaluate}
           />
         </div>
       </div>

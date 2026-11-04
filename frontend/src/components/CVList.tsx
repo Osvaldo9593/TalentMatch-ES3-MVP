@@ -6,11 +6,11 @@ interface CVListProps {
   cvs: CandidateCV[];
   jobOfferId: number;
   isLoading: boolean;
-  evaluatingCvId: number | null;
+  evaluatingCvId?: number | null;
   onDeleteCV: (cv: CandidateCV) => void;
   onViewDetail: (cvId: number) => void;
-  onEvaluateCV: (cv: CandidateCV) => void;
   onViewEvaluation: (cv: CandidateCV) => void;
+  onEvaluateCV?: (cv: CandidateCV) => void;
   onBatchEvaluate?: () => void;
 }
 
@@ -22,18 +22,17 @@ export const CVList: React.FC<CVListProps> = ({
   cvs,
   jobOfferId,
   isLoading,
-  evaluatingCvId,
   onDeleteCV,
   onViewDetail,
-  onEvaluateCV,
   onViewEvaluation,
-  onBatchEvaluate,
 }) => {
   // Search, filter, and sort state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [recommendationFilter, setRecommendationFilter] = useState<RecommendationFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('score_desc');
+  const [experienceFilter, setExperienceFilter] = useState<'all' | '0-2' | '3-5' | '5+'>('all');
+  const [educationFilter, setEducationFilter] = useState<'all' | 'tecnico' | 'profesional' | 'postgrado'>('all');
 
   // Badges visuales para recomendación
   const getRecommendationBadge = (recommendation: string) => {
@@ -97,6 +96,9 @@ export const CVList: React.FC<CVListProps> = ({
         if (cv.evaluation?.recommendation !== recommendationFilter) {
           return false;
         }
+
+        if (experienceFilter !== 'all' && cv.evaluation?.experience_range !== experienceFilter) return false;
+        if (educationFilter !== 'all' && cv.evaluation?.education_level !== educationFilter) return false;
       }
 
       return true;
@@ -136,7 +138,7 @@ export const CVList: React.FC<CVListProps> = ({
 
       return 0;
     });
-  }, [cvs, searchQuery, statusFilter, recommendationFilter, sortBy]);
+  }, [cvs, searchQuery, statusFilter, recommendationFilter, sortBy, experienceFilter, educationFilter]);
 
   if (isLoading) {
     return (
@@ -177,6 +179,8 @@ export const CVList: React.FC<CVListProps> = ({
     setStatusFilter('all');
     setRecommendationFilter('all');
     setSortBy('score_desc');
+    setExperienceFilter('all');
+    setEducationFilter('all');
   };
 
   const pendingCount = cvs.filter((c) => c.processing_status === 'processed' && !c.evaluation).length;
@@ -220,6 +224,26 @@ export const CVList: React.FC<CVListProps> = ({
               <option value="all">Todos ({cvs.length})</option>
               <option value="pending">Pendientes ({pendingCount})</option>
               <option value="evaluated">Evaluados ({evaluatedCount})</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-mono text-[#787774] hidden sm:inline">Experiencia:</span>
+            <select value={experienceFilter} onChange={(e) => setExperienceFilter(e.target.value as typeof experienceFilter)} className="py-1 px-2.5 bg-white border border-[#EAEAEA] rounded-md text-xs font-medium text-[#111111]">
+              <option value="all">Todos</option>
+              <option value="0-2">0-2 años</option>
+              <option value="3-5">3-5 años</option>
+              <option value="5+">+5 años</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-mono text-[#787774] hidden sm:inline">Estudios:</span>
+            <select value={educationFilter} onChange={(e) => setEducationFilter(e.target.value as typeof educationFilter)} className="py-1 px-2.5 bg-white border border-[#EAEAEA] rounded-md text-xs font-medium text-[#111111]">
+              <option value="all">Todos</option>
+              <option value="tecnico">Técnico</option>
+              <option value="profesional">Profesional</option>
+              <option value="postgrado">Postgrado</option>
             </select>
           </div>
 
@@ -284,23 +308,13 @@ export const CVList: React.FC<CVListProps> = ({
               : 'Prueba ajustando los términos de búsqueda o limpiando los filtros seleccionados.'}
           </p>
           <div className="pt-1 flex items-center justify-center gap-2">
-            {statusFilter === 'evaluated' && evaluatedCount === 0 && onBatchEvaluate && pendingCount > 0 ? (
-              <button
-                type="button"
-                onClick={onBatchEvaluate}
-                className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#111111] hover:bg-[#333333] rounded-md transition-colors shadow-xs"
-              >
-                Evaluar pendientes ({pendingCount})
-              </button>
-            ) : (
-              <button
+            <button
                 type="button"
                 onClick={handleResetFilters}
                 className="px-3 py-1.5 text-xs font-medium text-[#111111] bg-[#F7F6F3] hover:bg-[#EAEAE6] border border-[#EAEAEA] rounded-md transition-colors"
               >
                 Restablecer filtros
               </button>
-            )}
           </div>
         </div>
       ) : (
@@ -320,7 +334,7 @@ export const CVList: React.FC<CVListProps> = ({
               <tbody className="divide-y divide-[#F0F0EE]">
                 {filteredAndSortedCvs.map((cv) => {
                   const fileUrl = candidateCvService.getCVFileUrl(jobOfferId, cv.id);
-                  const isCurrentEvaluating = evaluatingCvId === cv.id;
+                  const isCurrentEvaluating = false;
                   const hasEvaluation = Boolean(cv.evaluation);
                   const evalBadge = cv.evaluation ? getRecommendationBadge(cv.evaluation.recommendation) : null;
 
@@ -435,19 +449,6 @@ export const CVList: React.FC<CVListProps> = ({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
                               <span>Ver</span>
-                            </button>
-                          ) : cv.processing_status === 'processed' ? (
-                            <button
-                              type="button"
-                              onClick={() => onEvaluateCV(cv)}
-                              disabled={evaluatingCvId !== null}
-                              className="px-2.5 py-1.5 text-[11px] font-medium text-white bg-[#111111] hover:bg-[#333333] rounded-md transition-colors inline-flex items-center gap-1 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Evaluar compatibilidad con OpenRouter"
-                            >
-                              <svg className="w-3.5 h-3.5 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                              </svg>
-                              <span>Evaluar</span>
                             </button>
                           ) : null}
 

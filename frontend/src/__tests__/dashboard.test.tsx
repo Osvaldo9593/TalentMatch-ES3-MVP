@@ -156,8 +156,8 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
     expect(screen.getAllByText('Revisar').length).toBeGreaterThanOrEqual(1);
   });
 
-  // 4. Pending CVs show Pendiente de evaluación and button Evaluar
-  it('4. Los CVs procesados pendientes muestran "Pendiente de evaluación" y botón "Evaluar"', () => {
+  // 4. Pending CVs show automatic processing status without manual action
+  it('4. Los CVs procesados pendientes muestran "Pendiente de evaluación" sin botón manual', () => {
     render(
       <CVList
         cvs={mockCvs}
@@ -172,7 +172,7 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
     );
 
     expect(screen.getByText('Pendiente de evaluación')).toBeDefined();
-    expect(screen.getByRole('button', { name: /evaluar/i })).toBeDefined();
+    expect(screen.queryByRole('button', { name: /evaluar/i })).toBeNull();
   });
 
   // 5. Failed CVs show Error de procesamiento
@@ -234,8 +234,8 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
     );
 
     const comboboxes = screen.getAllByRole('combobox');
-    // comboboxes[1] is recommendation filter
-    fireEvent.change(comboboxes[1], { target: { value: 'recommended' } });
+    // comboboxes[3] is recommendation filter after the new experience and education filters
+    fireEvent.change(comboboxes[3], { target: { value: 'recommended' } });
 
     expect(screen.getByText('cv_carlos_soto.pdf')).toBeDefined();
     expect(screen.queryByText('cv_ana_morales.pdf')).toBeNull();
@@ -262,48 +262,6 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
 
     expect(screen.getByText('cv_ana_morales.pdf')).toBeDefined();
     expect(screen.queryByText('cv_carlos_soto.pdf')).toBeNull();
-  });
-
-  // 9. Evaluation button triggers callback
-  it('9. El botón "Evaluar" invoca la función callback correspondiente', () => {
-    const handleEvaluate = vi.fn();
-
-    render(
-      <CVList
-        cvs={mockCvs}
-        jobOfferId={10}
-        isLoading={false}
-        evaluatingCvId={null}
-        onDeleteCV={vi.fn()}
-        onViewDetail={vi.fn()}
-        onEvaluateCV={handleEvaluate}
-        onViewEvaluation={vi.fn()}
-      />
-    );
-
-    const evaluateButton = screen.getByRole('button', { name: /evaluar/i });
-    fireEvent.click(evaluateButton);
-
-    expect(handleEvaluate).toHaveBeenCalledTimes(1);
-    expect(handleEvaluate).toHaveBeenCalledWith(mockCvs[2]);
-  });
-
-  // 10. Evaluating loading state is displayed
-  it('10. Se muestra el estado de carga durante la evaluación de un CV', () => {
-    render(
-      <CVList
-        cvs={mockCvs}
-        jobOfferId={10}
-        isLoading={false}
-        evaluatingCvId={3} // cv_pedro_ramirez está siendo evaluado
-        onDeleteCV={vi.fn()}
-        onViewDetail={vi.fn()}
-        onEvaluateCV={vi.fn()}
-        onViewEvaluation={vi.fn()}
-      />
-    );
-
-    expect(screen.getByText(/evaluando cv\.\.\./i)).toBeDefined();
   });
 
   // 11. Evaluation Detail Modal displays AI analysis correctly

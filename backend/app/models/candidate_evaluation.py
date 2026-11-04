@@ -17,6 +17,8 @@ class CandidateEvaluation(Base):
     )
     score = Column(Integer, nullable=False)
     recommendation = Column(String(50), nullable=False, index=True)  # recommended, review, not_recommended
+    experience_range = Column(String(20), nullable=False, default="0-2")
+    education_level = Column(String(20), nullable=False, default="tecnico")
     matched_required_skills = Column(JSON, nullable=False, default=list)
     missing_required_skills = Column(JSON, nullable=False, default=list)
     matched_preferred_skills = Column(JSON, nullable=False, default=list)

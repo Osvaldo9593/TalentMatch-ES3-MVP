@@ -1,11 +1,15 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+import logging
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.database import SessionLocal
 from app.services.job_offer_service import job_offer_service
 from app.services.cv_service import cv_service
+from app.services.cv_classifier_service import cv_classifier_service
+from app.schemas.candidate_evaluation import CandidateEvaluationResponse
 from app.schemas.candidate_cv import (
     CandidateCVResponse,
     CandidateCVListResponse,
@@ -14,6 +18,20 @@ from app.schemas.candidate_cv import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+async def _evaluate_cv_in_background(cv_id: int, job_offer_id: int) -> None:
+    db = SessionLocal()
+    try:
+        offer = job_offer_service.get_by_id(db, job_offer_id=job_offer_id)
+        cv = cv_service.get_by_id(db, job_offer_id=job_offer_id, cv_id=cv_id)
+        if offer and cv and cv.processing_status == "processed" and cv.evaluation is None:
+            await cv_classifier_service.evaluate_cv(db=db, job_offer=offer, cv=cv)
+    except Exception:
+        logger.exception("Error en evaluación automática del CV %s", cv_id)
+    finally:
+        db.close()
 
 
 def _get_validated_job_offer(job_offer_id: int, db: Session):
@@ -36,6 +54,7 @@ def _get_validated_job_offer(job_offer_id: int, db: Session):
 )
 async def upload_candidate_cv(
     job_offer_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Documento de currículum en formato PDF"),
     db: Session = Depends(get_db),
 ):
@@ -69,7 +88,15 @@ async def upload_candidate_cv(
             original_filename=file.filename,
             file_bytes=file_bytes,
         )
-        return saved_cv
+        if saved_cv.processing_status == "processed":
+            background_tasks.add_task(_evaluate_cv_in_background, saved_cv.id, job_offer_id)
+        response = CandidateCVResponse.model_validate(saved_cv)
+        response.message = (
+            "Currículum cargado. La evaluación se está procesando en segundo plano."
+            if saved_cv.processing_status == "processed"
+            else "Currículum cargado, pero no fue posible extraer texto para evaluarlo."
+        )
+        return response
 
     except ValueError as ve:
         raise HTTPException(

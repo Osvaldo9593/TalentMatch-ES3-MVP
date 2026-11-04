@@ -13,6 +13,7 @@ export interface CandidateCV {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  message?: string;
   evaluation?: CandidateEvaluationSummary | null;
 }
 

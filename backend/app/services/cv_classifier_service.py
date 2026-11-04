@@ -82,6 +82,8 @@ class CVClassifierService:
             "{\n"
             '  "score": <entero entre 0 y 100>,\n'
             '  "recommendation": <"recommended" | "review" | "not_recommended">,\n'
+            '  "experience_range": <"0-2" | "3-5" | "5+">,\n'
+            '  "education_level": <"tecnico" | "profesional" | "postgrado">,\n'
             '  "matched_required_skills": [<habilidades obligatorias demostradas en el CV>],\n'
             '  "missing_required_skills": [<habilidades obligatorias requeridas no encontradas>],\n'
             '  "matched_preferred_skills": [<habilidades deseadas demostradas en el CV>],\n'
@@ -220,6 +222,8 @@ class CVClassifierService:
             if existing_eval:
                 existing_eval.score = validated_ai.score
                 existing_eval.recommendation = recommendation_to_use
+                existing_eval.experience_range = validated_ai.experience_range
+                existing_eval.education_level = validated_ai.education_level
                 existing_eval.matched_required_skills = validated_ai.matched_required_skills
                 existing_eval.missing_required_skills = validated_ai.missing_required_skills
                 existing_eval.matched_preferred_skills = validated_ai.matched_preferred_skills
@@ -233,6 +237,8 @@ class CVClassifierService:
                     cv_id=cv.id,
                     score=validated_ai.score,
                     recommendation=recommendation_to_use,
+                    experience_range=validated_ai.experience_range,
+                    education_level=validated_ai.education_level,
                     matched_required_skills=validated_ai.matched_required_skills,
                     missing_required_skills=validated_ai.missing_required_skills,
                     matched_preferred_skills=validated_ai.matched_preferred_skills,

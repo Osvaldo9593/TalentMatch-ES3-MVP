@@ -46,6 +46,7 @@ class CandidateCVResponse(CandidateCVBase):
     Standard response returned after uploading or querying a CV.
     """
     evaluation: Optional[CandidateEvaluationSummary] = None
+    message: str = "Currículum cargado correctamente."
 
 
 class CandidateCVDetailResponse(CandidateCVBase):
