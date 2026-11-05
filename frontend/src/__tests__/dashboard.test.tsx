@@ -172,7 +172,7 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
       />
     );
 
-    expect(screen.getByText('Procesando CV con IA... ⏳')).toBeDefined();
+    expect(screen.getByText('Procesando...')).toBeDefined();
     expect(screen.queryByRole('button', { name: /evaluar/i })).toBeNull();
   });
 

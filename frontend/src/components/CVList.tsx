@@ -424,7 +424,7 @@ export const CVList: React.FC<CVListProps> = ({
                         ) : cv.processing_status === 'processed' ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium font-mono bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#B45309]" />
-                            Procesando CV con IA... ⏳
+                            Procesando...
                           </span>
                         ) : cv.processing_status === 'failed' ? (
                           <span
@@ -437,7 +437,7 @@ export const CVList: React.FC<CVListProps> = ({
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium font-mono bg-[#E1F3FE] text-[#1F6C9F] border border-[#C7E6FD]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#1F6C9F] animate-pulse" />
-                            Procesando CV con IA... ⏳
+                            Procesando...
                           </span>
                         )}
                         </div>
