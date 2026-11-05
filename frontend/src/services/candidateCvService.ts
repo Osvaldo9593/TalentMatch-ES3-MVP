@@ -1,4 +1,4 @@
-import { CandidateCV, CandidateCVDetail, CandidateCVDeleteResponse } from '../types/candidateCv';
+import { CandidateCV, CandidateCVDetail, CandidateCVDeleteResponse, EvaluationProgress } from '../types/candidateCv';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
@@ -11,6 +11,20 @@ class CandidateCvService {
     });
     if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
     return response.json();
+  }
+
+  async getEvaluationProgress(jobOfferId: number | string): Promise<EvaluationProgress> {
+    const response = await fetch(`${this.baseUrl}/api/v1/job-offers/${jobOfferId}/evaluation-progress`);
+    if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+    return response.json();
+  }
+
+  async retryEvaluation(jobOfferId: number | string, cvId: number | string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/v1/job-offers/${jobOfferId}/cvs/${cvId}/evaluate`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`No fue posible reintentar la evaluación (${response.status})`);
   }
 
   async uploadCV(jobOfferId: number | string, file: File): Promise<CandidateCV> {

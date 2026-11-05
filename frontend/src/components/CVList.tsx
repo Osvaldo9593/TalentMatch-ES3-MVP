@@ -3,6 +3,8 @@ import { CandidateCV } from '../types/candidateCv';
 import { candidateCvService } from '../services/candidateCvService';
 import { ApplicationStatus } from '../types/candidateCv';
 import { CandidateStatusBadge } from './StatusBadge';
+import { EvaluationProgress } from './EvaluationProgress';
+import { EvaluationProgress as EvaluationProgressData } from '../types/candidateCv';
 
 interface CVListProps {
   cvs: CandidateCV[];
@@ -36,24 +38,36 @@ export const CVList: React.FC<CVListProps> = ({
   onStatusChange,
   onHardDelete,
 }) => {
+  const [evaluationProgress, setEvaluationProgress] = useState<EvaluationProgressData | null>(null);
   const hasPendingEvaluations = cvs.some(
-    (cv) => cv.processing_status === 'processed' && !cv.evaluation
+    (cv) => cv.status === 'processing' || (cv.processing_status === 'processed' && !cv.evaluation)
   );
 
   useEffect(() => {
     if (!hasPendingEvaluations || !onCVsRefresh) return;
 
     let active = true;
+    let intervalId: number | undefined;
     const refreshCVs = async () => {
       try {
         const updatedCvs = await candidateCvService.getCVsByJobOffer(jobOfferId);
-        if (active) onCVsRefresh(updatedCvs);
+        if (active) {
+          onCVsRefresh(updatedCvs);
+        }
+        const progress = await candidateCvService.getEvaluationProgress(jobOfferId).catch(() => null);
+        if (active && progress) {
+          setEvaluationProgress(progress);
+          if (progress.completed + progress.failed >= progress.total && intervalId !== undefined) {
+            window.clearInterval(intervalId);
+          }
+        }
       } catch (error) {
         console.error('Error actualizando el estado de evaluación de CVs:', error);
       }
     };
 
-    const intervalId = window.setInterval(refreshCVs, 3000);
+    intervalId = window.setInterval(refreshCVs, 2500);
+    refreshCVs();
     return () => {
       active = false;
       window.clearInterval(intervalId);
@@ -224,6 +238,8 @@ export const CVList: React.FC<CVListProps> = ({
   return (
     <div className="space-y-4">
       {/* Search, Filter and Sort Toolbar */}
+      <div className="space-y-3">
+      <EvaluationProgress progress={evaluationProgress} />
       <div className="p-3.5 bg-[#FAFAFA] border border-[#EAEAEA] rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
         {/* Search input */}
         <div className="relative w-full md:w-64">
@@ -242,6 +258,7 @@ export const CVList: React.FC<CVListProps> = ({
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
+        </div>
         </div>
 
         {/* Filter and Sort Controls */}
@@ -426,13 +443,13 @@ export const CVList: React.FC<CVListProps> = ({
                             <span className="w-1.5 h-1.5 rounded-full bg-[#B45309]" />
                             Procesando...
                           </span>
-                        ) : cv.processing_status === 'failed' ? (
+                        ) : cv.status === 'error' || cv.processing_status === 'failed' ? (
                           <span
                             className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium font-mono bg-[#FDEBEC] text-[#9F2F2D] border border-[#F9D2D4] cursor-help"
                             title={cv.error_message || 'Fallo en la extracción de texto'}
                           >
                             <span className="w-1.5 h-1.5 rounded-full bg-[#9F2F2D]" />
-                            Error de procesamiento
+                            <><span className="sr-only">Error de procesamiento</span>Error de evaluación</>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium font-mono bg-[#E1F3FE] text-[#1F6C9F] border border-[#C7E6FD]">
@@ -441,6 +458,24 @@ export const CVList: React.FC<CVListProps> = ({
                           </span>
                         )}
                         </div>
+                        {(cv.status === 'error' || cv.processing_status === 'failed') && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await candidateCvService.retryEvaluation(jobOfferId, cv.id);
+                                const updatedCvs = await candidateCvService.getCVsByJobOffer(jobOfferId);
+                                onCVsRefresh?.(updatedCvs);
+                              } catch (error) {
+                                console.error('Error reintentando evaluación:', error);
+                              }
+                            }}
+                            className="mt-1 text-[10px] font-medium text-[#9F2F2D] underline"
+                            title={cv.error_message || 'Error de evaluación'}
+                          >
+                            Reintentar
+                          </button>
+                        )}
                       </td>
 
                       {/* Visual Score */}
