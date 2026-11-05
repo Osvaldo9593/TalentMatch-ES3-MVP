@@ -58,19 +58,18 @@ class CVService:
                 f"El archivo excede el tamaño máximo permitido de {settings.MAX_CV_FILE_SIZE_MB} MB."
             )
 
-        # 2. PDF structural validation
-        is_valid_pdf, validation_err = pdf_service.validate_pdf_structure(file_bytes)
-        if not is_valid_pdf:
-            raise ValueError(validation_err or "El archivo enviado no es un documento PDF válido.")
-
         # 3. Clean and sanitize original filename for metadata display
         sanitized_original_name = os.path.basename(original_filename.strip()) or "cv_document.pdf"
-        if not sanitized_original_name.lower().endswith(".pdf"):
-            sanitized_original_name += ".pdf"
+        extension = Path(sanitized_original_name).suffix.lower()
+        if extension not in {".pdf", ".docx"}:
+            raise ValueError("Formato no soportado. Se requiere un archivo PDF o DOCX.")
+        is_valid_document, validation_err = pdf_service.validate_document(file_bytes, extension)
+        if not is_valid_document:
+            raise ValueError(validation_err or "El archivo enviado no es válido.")
 
         # 4. Generate unique stored filename with UUID
         unique_id = str(uuid.uuid4())
-        stored_filename = f"{unique_id}.pdf"
+        stored_filename = f"{unique_id}{extension}"
         target_path = self.get_absolute_path(stored_filename)
 
         # 5. Write file physically to storage
@@ -80,8 +79,8 @@ class CVService:
         except Exception as e:
             raise RuntimeError(f"No fue posible guardar el archivo en el almacenamiento: {str(e)}")
 
-        # 6. Extract text from PDF
-        extracted_text, extract_error = pdf_service.extract_and_clean_text(file_bytes)
+        # 6. Extract text from the selected document format
+        extracted_text, extract_error = pdf_service.extract_document_text(file_bytes, extension)
 
         # 7. Determine processing status
         if extracted_text and not extract_error:
@@ -101,7 +100,11 @@ class CVService:
             stored_filename=stored_filename,
             file_path=relative_file_path,
             file_size=file_size,
-            mime_type="application/pdf",
+            mime_type=(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                if extension == ".docx"
+                else "application/pdf"
+            ),
             extracted_text=extracted_text,
             processing_status=processing_status,
             error_message=error_message,

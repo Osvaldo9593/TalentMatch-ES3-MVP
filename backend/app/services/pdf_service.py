@@ -2,9 +2,63 @@ import io
 import re
 from typing import Tuple, Optional
 import pypdf
+from docx import Document
 
 
 class PDFService:
+    @staticmethod
+    def validate_docx_structure(file_bytes: bytes) -> Tuple[bool, Optional[str]]:
+        if not file_bytes:
+            return False, "El archivo DOCX está vacío."
+        try:
+            document = Document(io.BytesIO(file_bytes))
+            has_paragraph_text = any(paragraph.text.strip() for paragraph in document.paragraphs)
+            has_table_text = any(
+                cell.text.strip()
+                for table in document.tables
+                for row in table.rows
+                for cell in row.cells
+            )
+            if not has_paragraph_text and not has_table_text:
+                return False, "El archivo DOCX no contiene contenido legible."
+            return True, None
+        except Exception as exc:
+            return False, f"Estructura DOCX corrupta o no reconocible: {exc}"
+
+    @staticmethod
+    def extract_docx_text(file_bytes: bytes) -> Tuple[Optional[str], Optional[str]]:
+        try:
+            document = Document(io.BytesIO(file_bytes))
+            chunks = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
+            for table in document.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if cells:
+                        chunks.append(" | ".join(cells))
+            text = "\n".join(chunks).strip()
+            if not text:
+                return None, "No fue posible extraer texto del documento DOCX."
+            return text, None
+        except Exception as exc:
+            return None, f"Error durante la extracción de texto del DOCX: {exc}"
+
+    @classmethod
+    def validate_document(cls, file_bytes: bytes, extension: str) -> Tuple[bool, Optional[str]]:
+        return (
+            cls.validate_docx_structure(file_bytes)
+            if extension == ".docx"
+            else cls.validate_pdf_structure(file_bytes)
+        )
+
+    @classmethod
+    def extract_document_text(
+        cls, file_bytes: bytes, extension: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        return (
+            cls.extract_docx_text(file_bytes)
+            if extension == ".docx"
+            else cls.extract_and_clean_text(file_bytes)
+        )
     @staticmethod
     def validate_pdf_structure(file_bytes: bytes) -> Tuple[bool, Optional[str]]:
         """

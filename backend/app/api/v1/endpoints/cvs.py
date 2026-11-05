@@ -58,13 +58,13 @@ def _get_validated_job_offer(job_offer_id: int, db: Session):
     "/",
     response_model=CandidateCVResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Cargar y procesar un CV en PDF",
-    description="Recibe un archivo PDF, valida su estructura, extrae su texto normalizado y lo asocia a la oferta laboral.",
+    summary="Cargar y procesar un CV PDF o DOCX",
+    description="Recibe un archivo PDF o DOCX, valida su estructura, extrae texto y lo asocia a la oferta laboral.",
 )
 async def upload_candidate_cv(
     job_offer_id: int,
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(..., description="Documento de currículum en formato PDF"),
+    file: UploadFile = File(..., description="Documento de currículum en formato PDF o DOCX"),
     db: Session = Depends(get_db),
 ):
     _get_validated_job_offer(job_offer_id, db)
@@ -77,10 +77,10 @@ async def upload_candidate_cv(
         )
 
     # Check extension
-    if not file.filename.lower().endswith(".pdf"):
+    if not file.filename.lower().endswith((".pdf", ".docx")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato de archivo no soportado. Se requiere un documento en formato PDF (.pdf).",
+            detail="Formato de archivo no soportado. Se requiere un documento PDF (.pdf) o DOCX (.docx).",
         )
 
     try:
@@ -194,8 +194,8 @@ def delete_candidate_cv(
 
 @router.get(
     "/{cv_id}/file",
-    summary="Visualizar o descargar el PDF original",
-    description="Permite el acceso seguro al archivo PDF almacenado.",
+    summary="Visualizar o descargar el documento original",
+    description="Permite el acceso seguro al archivo PDF o DOCX almacenado.",
 )
 def get_candidate_cv_file(
     job_offer_id: int,
@@ -220,7 +220,7 @@ def get_candidate_cv_file(
 
         return FileResponse(
             path=str(target_path),
-            media_type="application/pdf",
+            media_type=cv_obj.mime_type,
             filename=cv_obj.original_filename,
         )
     except HTTPException:
