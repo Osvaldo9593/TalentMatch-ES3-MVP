@@ -1,4 +1,5 @@
 import logging
+import json
 from typing import Any, Dict
 import httpx
 
@@ -16,7 +17,7 @@ class OpenRouterService:
     def __init__(self):
         self.base_url = settings.OPENROUTER_BASE_URL.rstrip("/")
         self.model = settings.OPENROUTER_MODEL
-        self.timeout = settings.OPENROUTER_TIMEOUT_SECONDS
+        self.timeout = 45.0
 
     def is_configured(self) -> bool:
         """Verifica si la variable OPENROUTER_API_KEY está definida y no vacía."""
@@ -62,7 +63,16 @@ class OpenRouterService:
                 )
 
             if response.status_code == 200:
-                data = response.json()
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as exc:
+                    logger.exception("OpenRouter devolvió JSON inválido")
+                    return {
+                        "status": "error",
+                        "provider": "openrouter",
+                        "model": self.model,
+                        "error": f"Respuesta JSON inválida de OpenRouter: {exc}",
+                    }
                 choices = data.get("choices", [])
                 if choices and "message" in choices[0] and "content" in choices[0]["message"]:
                     content = choices[0]["message"]["content"].strip()
@@ -112,13 +122,21 @@ class OpenRouterService:
                     "error": f"OpenRouter respondió con código de estado HTTP {response.status_code}."
                 }
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             logger.error("Tiempo de espera agotado al conectar con OpenRouter")
             return {
                 "status": "error",
                 "provider": "openrouter",
                 "model": self.model,
-                "error": "Tiempo de espera agotado al conectar con OpenRouter."
+                "error": f"Tiempo de espera agotado al conectar con OpenRouter: {exc}"
+            }
+        except httpx.HTTPStatusError as exc:
+            logger.exception("OpenRouter respondió con un estado HTTP inesperado")
+            return {
+                "status": "error",
+                "provider": "openrouter",
+                "model": self.model,
+                "error": f"Error HTTP de OpenRouter: {exc.response.status_code}",
             }
         except httpx.RequestError as exc:
             logger.error(f"Error de red al conectar con OpenRouter: {type(exc).__name__}")
@@ -179,7 +197,16 @@ class OpenRouterService:
                 )
 
             if response.status_code == 200:
-                data = response.json()
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as exc:
+                    logger.exception("OpenRouter devolvió JSON inválido")
+                    return {
+                        "status": "error",
+                        "provider": "openrouter",
+                        "model": self.model,
+                        "error": f"Respuesta JSON inválida de OpenRouter: {exc}",
+                    }
                 choices = data.get("choices", [])
                 if choices and "message" in choices[0] and "content" in choices[0]["message"]:
                     content = choices[0]["message"]["content"]
@@ -233,13 +260,21 @@ class OpenRouterService:
                     "error": f"OpenRouter respondió con código de estado HTTP {response.status_code}."
                 }
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             logger.error("Tiempo de espera agotado al conectar con OpenRouter")
             return {
                 "status": "error",
                 "provider": "openrouter",
                 "model": self.model,
-                "error": "Tiempo de espera agotado al conectar con OpenRouter."
+                "error": f"Tiempo de espera agotado al conectar con OpenRouter: {exc}"
+            }
+        except httpx.HTTPStatusError as exc:
+            logger.exception("OpenRouter respondió con un estado HTTP inesperado")
+            return {
+                "status": "error",
+                "provider": "openrouter",
+                "model": self.model,
+                "error": f"Error HTTP de OpenRouter: {exc.response.status_code}",
             }
         except httpx.RequestError as exc:
             logger.error(f"Error de red al conectar con OpenRouter: {type(exc).__name__}")

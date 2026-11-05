@@ -27,6 +27,13 @@ class CandidateCV(Base):
         server_default="uploaded",
         index=True
     )
+    status = Column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+        index=True,
+    )
     error_message = Column(Text, nullable=True)
     application_status = Column(
         String(30),

@@ -156,6 +156,10 @@ class CVClassifierService:
         3. Extracción, parseo y validación estricta con Pydantic.
         4. Normalización de umbrales y persistencia en PostgreSQL.
         """
+        cv.status = "processing"
+        cv.error_message = None
+        db.commit()
+
         # 1. Validaciones previas
         if cv.processing_status != "processed":
             raise HTTPException(
@@ -254,6 +258,10 @@ class CVClassifierService:
 
             db.commit()
             db.refresh(evaluation_record)
+            cv.status = "evaluated"
+            cv.processing_status = "processed"
+            cv.error_message = None
+            db.commit()
             logger.info(f"Evaluación completada y guardada con éxito para CV ID {cv.id} (Score: {evaluation_record.score})")
             return evaluation_record
 

@@ -32,12 +32,16 @@ async def _evaluate_cv_in_background(cv_id: int, job_offer_id: int) -> None:
         offer = job_offer_service.get_by_id(db, job_offer_id=job_offer_id)
         cv = cv_service.get_by_id(db, job_offer_id=job_offer_id, cv_id=cv_id)
         if offer and cv and cv.processing_status == "processed" and cv.evaluation is None:
+            cv.status = "processing"
+            db.commit()
             await cv_classifier_service.evaluate_cv(db=db, job_offer=offer, cv=cv)
-    except Exception:
+    except Exception as exc:
         logger.exception("Error en evaluación automática del CV %s", cv_id)
         cv = cv_service.get_by_id(db, job_offer_id=job_offer_id, cv_id=cv_id)
         if cv:
-            cv.error_message = "Error durante la evaluación automática del currículum."
+            cv.status = "error"
+            cv.processing_status = "failed"
+            cv.error_message = str(exc) or "Error durante la evaluación automática del currículum."
             db.commit()
     finally:
         db.close()

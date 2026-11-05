@@ -85,10 +85,12 @@ class CVService:
         # 7. Determine processing status
         if extracted_text and not extract_error:
             processing_status = "processed"
+            evaluation_status = "pending"
             error_message = None
             extraction_status = "OK"
         else:
             processing_status = "failed"
+            evaluation_status = "error"
             error_message = extract_error or "No se pudo extraer texto del documento."
             extraction_status = "ERROR_FORMATO"
 
@@ -107,6 +109,7 @@ class CVService:
             ),
             extracted_text=extracted_text,
             processing_status=processing_status,
+            status=evaluation_status,
             error_message=error_message,
             extraction_status=extraction_status,
         )
