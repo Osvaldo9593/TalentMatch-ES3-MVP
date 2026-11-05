@@ -26,15 +26,17 @@ export const CVUploadZone: React.FC<CVUploadZoneProps> = ({
     const newItems: UploadQueueItem[] = [];
 
     Array.from(files).forEach((file) => {
-      // Client-side validation: must be PDF
+      // Client-side validation: PDF or DOCX
       const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
-      if (!isPdf) {
+      const isDocx = file.name.toLowerCase().endsWith('.docx') ||
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      if (!isPdf && !isDocx) {
         newItems.push({
           id: Math.random().toString(36).substring(2, 9),
           file,
           status: 'error',
           progress: 0,
-          errorMessage: 'Formato no soportado (solo se admiten archivos .pdf)',
+          errorMessage: 'Formato no soportado (solo se admiten archivos .pdf o .docx)',
         });
         return;
       }
@@ -152,7 +154,7 @@ export const CVUploadZone: React.FC<CVUploadZoneProps> = ({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,application/pdf"
+        accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         multiple
         onChange={(e) => handleFilesSelected(e.target.files)}
         className="hidden"
@@ -184,11 +186,11 @@ export const CVUploadZone: React.FC<CVUploadZoneProps> = ({
 
           <div>
             <p className="text-sm font-medium text-[#111111]">
-              Arrastra y suelta currículums en PDF aquí, o{' '}
+              Arrastra y suelta currículums en PDF o DOCX aquí, o{' '}
               <span className="underline underline-offset-2 text-[#111111]">selecciona archivos</span>
             </p>
             <p className="text-xs text-[#787774] mt-1 font-mono">
-              Admite selección múltiple • Formato PDF (.pdf) • Máx. {maxFileSizeMb} MB por archivo
+              Admite selección múltiple • PDF/DOCX • Máx. {maxFileSizeMb} MB por archivo
             </p>
           </div>
         </div>
