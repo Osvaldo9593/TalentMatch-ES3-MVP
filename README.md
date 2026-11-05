@@ -231,19 +231,23 @@ Desde la carpeta `backend/`:
 ```bash
 pytest -v
 ```
-*(53 pruebas unitarias y de integración que verifican endpoints, esquemas, reglas de validación, DOCX y modelos).*
+*(55 pruebas unitarias y de integración que verifican endpoints, esquemas, reglas de validación, DOCX, resiliencia y modelos).*
 
 ### Pruebas del Frontend (vitest)
 Desde la carpeta `frontend/`:
 ```bash
 npm test
 ```
-*(18 pruebas que validan autenticación, carga PDF/DOCX, componentes del dashboard, listado, ordenamiento y clientes API).*
+*(20 pruebas que validan autenticación, carga PDF/DOCX, progreso, componentes del dashboard, listado, ordenamiento y clientes API).*
 
 ### Verificación del Flujo End-to-End en Vivo
 Ejecuta la prueba de integración completa con PostgreSQL y OpenRouter en vivo:
 ```bash
 python scripts/verify_step6_e2e.py
+```
+Para verificar la superficie de resiliencia:
+```bash
+python scripts/verify_resilience_e2e.py
 ```
 
 ---
@@ -275,6 +279,8 @@ python scripts/verify_step6_e2e.py
 | **Evaluación automática** | `POST /api/v1/job-offers/{id}/cvs/` | Programa la evaluación del CV cargado en segundo plano |
 | **Obtener Evaluación** | `GET /api/v1/job-offers/{id}/cvs/{cv_id}/evaluation` | Consulta evaluación almacenada en PostgreSQL sin re-evaluar |
 | **Evaluar en Lote** | `POST /api/v1/job-offers/{id}/evaluate` | Programa en segundo plano todos los CVs procesados pendientes |
+| **Progreso de evaluación** | `GET /api/v1/job-offers/{id}/evaluation-progress` | Entrega total, completados, fallidos, pendientes y CV actualmente en proceso |
+| **Reintentar evaluación** | `POST /api/v1/job-offers/{id}/cvs/{cv_id}/evaluate` | Reprograma un CV en estado `pending` o `error` |
 | **Login** | `POST /api/v1/auth/login` | Obtiene un token JWT para usuarios admin o recruiter |
 | **Perfil actual** | `GET /api/v1/auth/me` | Consulta el usuario autenticado |
 
@@ -290,6 +296,8 @@ python scripts/verify_step6_e2e.py
 3. **Evaluación Asistida por IA**:
    - Se envía a OpenRouter (`openrouter/free`) el conjunto de criterios del cargo junto con el texto extraído del currículum.
    - El prompt del sistema fuerza estricta objetividad, prohibiendo el uso de datos personales (edad, género, nacionalidad, fotografía, etc.) para el puntaje.
+   - El ciclo de evaluación usa los estados `pending -> processing -> evaluated` o `error`; los fallos de timeout, rate limit o JSON quedan persistidos en `error_message` y no detienen el resto del lote.
+   - El dashboard consulta el progreso cada 2,5 segundos mientras existen CVs en proceso y permite reintentar individualmente los registros fallidos.
 4. **Validación Estructurada y Persistencia**:
    - La respuesta del LLM es decodificada y validada estrictamente mediante esquemas Pydantic.
    - El puntaje (0–100) y la recomendación (`recommended`, `review`, `not_recommended`) se normalizan y almacenan en la tabla `candidate_evaluations` de PostgreSQL.
