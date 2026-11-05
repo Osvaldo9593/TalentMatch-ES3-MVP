@@ -212,7 +212,7 @@ def test_evaluate_cv_threshold_normalization(client: TestClient, sample_job_offe
         "score": 50,  # Menor a 60
         "recommendation": "recommended",  # Inconsistente con score < 60
         "experience_range": "0-2",
-        "education_level": "tecnico",
+        "education_level": "técnico",
         "matched_required_skills": [],
         "missing_required_skills": ["Python", "FastAPI"],
         "matched_preferred_skills": [],

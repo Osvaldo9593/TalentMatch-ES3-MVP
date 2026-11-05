@@ -68,8 +68,9 @@ class CVClassifierService:
             "Eres un asistente experto en reclutamiento y selección de talento para evaluación preliminar de currículums (CVs).\n"
             "Tu tarea es analizar la compatibilidad técnica y profesional entre una oferta laboral y el CV de un candidato.\n\n"
             "REGLAS OBLIGATORIAS:\n"
-            "0. IDIOMA: IMPORTANTE: Tu respuesta (incluyendo el análisis, el resumen y cualquier recomendación) debe estar EXCLUSIVAMENTE en idioma ESPAÑOL. "
-            "No uses inglés en ninguna parte del JSON de salida, excepto nombres propios, tecnologías y los valores enumerados de los campos estructurados.\n"
+            "0. IDIOMA: Toda la respuesta debe estar EXCLUSIVAMENTE en español. "
+            "Los campos experience_analysis, requirements_analysis y summary deben redactarse obligatoriamente en español. "
+            "No uses inglés en ninguna parte del JSON, salvo nombres propios, tecnologías y valores estructurados definidos explícitamente.\n"
             "1. CERO SESGOS: Evalúa ÚNICAMENTE competencias laborales y técnicas directamente relacionadas con el cargo. "
             "Ignora por completo edad, género, nacionalidad, estado civil, religión, dirección particular, apariencia o situación familiar. "
             "Bajo ningún concepto estos factores deben influir en el puntaje o la recomendación.\n"
@@ -85,7 +86,7 @@ class CVClassifierService:
             '  "score": <entero entre 0 y 100>,\n'
             '  "recommendation": <"recommended" | "review" | "not_recommended">,\n'
             '  "experience_range": <"0-2" | "3-5" | "5+">,\n'
-            '  "education_level": <"tecnico" | "profesional" | "postgrado">,\n'
+            '  "education_level": <"técnico" | "profesional" | "postgrado">,\n'
             '  "matched_required_skills": [<habilidades obligatorias demostradas en el CV>],\n'
             '  "missing_required_skills": [<habilidades obligatorias requeridas no encontradas>],\n'
             '  "matched_preferred_skills": [<habilidades deseadas demostradas en el CV>],\n'

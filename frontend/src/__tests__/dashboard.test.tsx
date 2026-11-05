@@ -158,7 +158,7 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
   });
 
   // 4. Pending CVs show automatic processing status without manual action
-  it('4. Los CVs procesados pendientes muestran el indicador de procesamiento sin botón manual', () => {
+  it('4. Los CVs procesados pendientes muestran procesamiento automático sin botón manual', () => {
     render(
       <CVList
         cvs={mockCvs}
@@ -172,11 +172,11 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
       />
     );
 
-    expect(screen.getByText(/Procesando CV con IA/)).toBeDefined();
+    expect(screen.getByText('Procesando CV con IA... ⏳')).toBeDefined();
     expect(screen.queryByRole('button', { name: /evaluar/i })).toBeNull();
   });
 
-  it('4b. Actualiza automáticamente los CVs pendientes cada cinco segundos', async () => {
+  it('4b. Actualiza automáticamente los CVs pendientes cada tres segundos', async () => {
     vi.useFakeTimers();
     const refresh = vi.fn();
     const getCVsByJobOffer = vi
@@ -196,7 +196,7 @@ describe('Paso 5 — Dashboard y Visualización de Resultados', () => {
     );
 
     await act(async () => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(3000);
       await Promise.resolve();
     });
 

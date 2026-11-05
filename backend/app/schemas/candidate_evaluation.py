@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 EvaluationRecommendation = Literal["recommended", "review", "not_recommended"]
 ExperienceRange = Literal["0-2", "3-5", "5+"]
-EducationLevel = Literal["tecnico", "profesional", "postgrado"]
+EducationLevel = Literal["técnico", "profesional", "postgrado"]
 
 
 class CandidateEvaluationAIResponse(BaseModel):
@@ -22,7 +22,7 @@ class CandidateEvaluationAIResponse(BaseModel):
         description="Categoría de recomendación ('recommended', 'review', 'not_recommended')"
     )
     experience_range: ExperienceRange = Field("0-2", description="Rango de años de experiencia explícito en el CV")
-    education_level: EducationLevel = Field("tecnico", description="Nivel de estudios explícito en el CV")
+    education_level: EducationLevel = Field("técnico", description="Nivel de estudios explícito en el CV")
     matched_required_skills: List[str] = Field(
         default_factory=list,
         description="Habilidades obligatorias demostradas en el CV"

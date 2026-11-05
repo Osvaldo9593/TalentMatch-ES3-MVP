@@ -1,6 +1,6 @@
 export type EvaluationRecommendation = 'recommended' | 'review' | 'not_recommended';
 export type ExperienceRange = '0-2' | '3-5' | '5+';
-export type EducationLevel = 'tecnico' | 'profesional' | 'postgrado';
+export type EducationLevel = 'técnico' | 'profesional' | 'postgrado';
 
 export interface CandidateEvaluation {
   id: number;

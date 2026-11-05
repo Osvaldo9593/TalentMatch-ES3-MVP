@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CandidateCV } from '../types/candidateCv';
 import { candidateCvService } from '../services/candidateCvService';
 
@@ -29,27 +29,25 @@ export const CVList: React.FC<CVListProps> = ({
   onCVsRefresh,
 }) => {
   const hasPendingEvaluations = cvs.some(
-    (cv) =>
-      !cv.evaluation &&
-      ['uploaded', 'processing', 'processed'].includes(cv.processing_status)
+    (cv) => cv.processing_status === 'processed' && !cv.evaluation
   );
 
   useEffect(() => {
     if (!hasPendingEvaluations || !onCVsRefresh) return;
 
-    let isActive = true;
+    let active = true;
     const refreshCVs = async () => {
       try {
         const updatedCvs = await candidateCvService.getCVsByJobOffer(jobOfferId);
-        if (isActive) onCVsRefresh(updatedCvs);
+        if (active) onCVsRefresh(updatedCvs);
       } catch (error) {
         console.error('Error actualizando el estado de evaluación de CVs:', error);
       }
     };
 
-    const intervalId = window.setInterval(refreshCVs, 5000);
+    const intervalId = window.setInterval(refreshCVs, 3000);
     return () => {
-      isActive = false;
+      active = false;
       window.clearInterval(intervalId);
     };
   }, [hasPendingEvaluations, jobOfferId, onCVsRefresh]);
@@ -60,7 +58,7 @@ export const CVList: React.FC<CVListProps> = ({
   const [recommendationFilter, setRecommendationFilter] = useState<RecommendationFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('score_desc');
   const [experienceFilter, setExperienceFilter] = useState<'all' | '0-2' | '3-5' | '5+'>('all');
-  const [educationFilter, setEducationFilter] = useState<'all' | 'tecnico' | 'profesional' | 'postgrado'>('all');
+  const [educationFilter, setEducationFilter] = useState<'all' | 'técnico' | 'profesional' | 'postgrado'>('all');
 
   // Badges visuales para recomendación
   const getRecommendationBadge = (recommendation: string) => {
@@ -124,6 +122,7 @@ export const CVList: React.FC<CVListProps> = ({
         if (cv.evaluation?.recommendation !== recommendationFilter) {
           return false;
         }
+
       }
 
       if (experienceFilter !== 'all' && cv.evaluation?.experience_range !== experienceFilter) return false;
@@ -269,7 +268,7 @@ export const CVList: React.FC<CVListProps> = ({
             <span className="text-[11px] font-mono text-[#787774] hidden sm:inline">Estudios:</span>
             <select value={educationFilter} onChange={(e) => setEducationFilter(e.target.value as typeof educationFilter)} className="py-1 px-2.5 bg-white border border-[#EAEAEA] rounded-md text-xs font-medium text-[#111111]">
               <option value="all">Todos</option>
-              <option value="tecnico">Técnico</option>
+              <option value="técnico">Técnico</option>
               <option value="profesional">Profesional</option>
               <option value="postgrado">Postgrado</option>
             </select>
@@ -399,7 +398,7 @@ export const CVList: React.FC<CVListProps> = ({
                           </span>
                         ) : cv.processing_status === 'processed' ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium font-mono bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]">
-                            <span className="w-2.5 h-2.5 border-2 border-[#B45309] border-t-transparent rounded-full animate-spin" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#B45309]" />
                             Procesando CV con IA... ⏳
                           </span>
                         ) : cv.processing_status === 'failed' ? (
