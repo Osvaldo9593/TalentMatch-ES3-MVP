@@ -3,7 +3,7 @@
 **Proyecto de Título para Ingeniería en Informática**  
 **Estado:** MVP Final Integrado (Paso 6 — Integración Final, Seguridad, Pruebas y Preparación del MVP)
 
-TalentMatch es una solución de software orientada a optimizar y transparentar el proceso de preselección de candidatos en reclutamiento laboral. Permite a un evaluador o reclutador crear convocatorias con criterios técnicos específicos, cargar currículums en formato PDF, extraer su texto de forma automatizada, evaluar objetivamente la compatibilidad profesional mediante Inteligencia Artificial (OpenRouter) y visualizar los resultados consolidados en un panel interactivo.
+TalentMatch es una solución de software orientada a optimizar y transparentar el proceso de preselección de candidatos en reclutamiento laboral. Permite a un evaluador o reclutador crear convocatorias con criterios técnicos específicos, cargar currículums en formato PDF o DOCX, extraer su texto de forma automatizada, evaluar objetivamente la compatibilidad profesional mediante Inteligencia Artificial (OpenRouter) y visualizar los resultados consolidados en un panel interactivo.
 
 > [!IMPORTANT]
 > **Aviso Ético y de Alcance**: TalentMatch es un MVP académico de apoyo analítico a la preselección de candidatos. La Inteligencia Artificial **NO toma decisiones finales de contratación**. La decisión de selección corresponde siempre y en última instancia al evaluador o reclutador humano.
@@ -45,7 +45,7 @@ El sistema implementa una arquitectura desacoplada y orientada a servicios, dond
 ```
 
 - **Frontend**: React 18, Vite, TypeScript, Tailwind CSS. Interfaz limpia tipo editorial, componentes modulares, filtros multivariables y modales de inspección.
-- **Backend**: Python 3, FastAPI, SQLAlchemy 2, Pydantic v2, Alembic. Servicios independientes para almacenamiento físico de archivos, extracción de texto de PDFs y clasificación con IA.
+- **Backend**: Python 3, FastAPI, SQLAlchemy 2, Pydantic v2, Alembic. Servicios independientes para almacenamiento físico de archivos PDF/DOCX, extracción de texto y clasificación con IA.
 - **Base de Datos**: PostgreSQL 16 sobre Docker con volumen persistente (`postgres_data`).
 - **IA**: OpenRouter API utilizando el modelo `openrouter/free`. Clave de API aislada exclusivamente en el backend.
 - **Almacenamiento**: Almacenamiento local aislado en `backend/storage/cvs/` utilizando identificadores UUID v4 y validación anti path-traversal.
@@ -231,14 +231,14 @@ Desde la carpeta `backend/`:
 ```bash
 pytest -v
 ```
-*(45 pruebas unitarias y de integración que verifican endpoints, esquemas, reglas de validación y modelos).*
+*(52 pruebas unitarias y de integración que verifican endpoints, esquemas, reglas de validación, DOCX y modelos).*
 
 ### Pruebas del Frontend (vitest)
 Desde la carpeta `frontend/`:
 ```bash
 npm test
 ```
-*(15 pruebas que validan componentes del dashboard, modales de evaluación, listado, ordenamiento y clientes API).*
+*(18 pruebas que validan autenticación, carga PDF/DOCX, componentes del dashboard, listado, ordenamiento y clientes API).*
 
 ### Verificación del Flujo End-to-End en Vivo
 Ejecuta la prueba de integración completa con PostgreSQL y OpenRouter en vivo:
@@ -267,14 +267,16 @@ python scripts/verify_step6_e2e.py
 | **Obtener Oferta** | `GET /api/v1/job-offers/{id}` | Obtiene detalle completo de una oferta |
 | **Actualizar Oferta** | `PUT /api/v1/job-offers/{id}` | Modifica datos y criterios de selección |
 | **Eliminar Oferta** | `DELETE /api/v1/job-offers/{id}` | Eliminación física (bloqueada si posee CVs asociados) |
-| **Cargar CV (PDF)** | `POST /api/v1/job-offers/{id}/cvs/` | Valida estructura PDF, almacena con UUID y extrae texto |
+| **Cargar CV (PDF/DOCX)** | `POST /api/v1/job-offers/{id}/cvs/` | Valida, almacena con UUID y extrae texto de PDF o DOCX |
 | **Listar CVs de Oferta** | `GET /api/v1/job-offers/{id}/cvs/` | Retorna los CVs de la convocatoria con resumen de evaluación |
 | **Detalle de CV** | `GET /api/v1/job-offers/{id}/cvs/{cv_id}` | Obtiene metadatos, texto extraído y conteo de palabras |
-| **Descargar PDF** | `GET /api/v1/job-offers/{id}/cvs/{cv_id}/file` | Entrega segura del archivo original en formato PDF |
+| **Descargar documento** | `GET /api/v1/job-offers/{id}/cvs/{cv_id}/file` | Entrega segura del archivo PDF o DOCX original |
 | **Eliminar CV** | `DELETE /api/v1/job-offers/{id}/cvs/{cv_id}` | Elimina registro en BD, archivo en disco y evaluación en cascada |
-| **Evaluar CV con IA** | `POST /api/v1/job-offers/{id}/cvs/{cv_id}/evaluate` | Ejecuta evaluación individual con OpenRouter y persiste resultado |
+| **Evaluación automática** | `POST /api/v1/job-offers/{id}/cvs/` | Programa la evaluación del CV cargado en segundo plano |
 | **Obtener Evaluación** | `GET /api/v1/job-offers/{id}/cvs/{cv_id}/evaluation` | Consulta evaluación almacenada en PostgreSQL sin re-evaluar |
-| **Evaluar en Lote** | `POST /api/v1/job-offers/{id}/evaluate` | Evalúa secuencialmente los CVs pendientes de una oferta |
+| **Evaluar en Lote** | `POST /api/v1/job-offers/{id}/evaluate` | Programa en segundo plano todos los CVs procesados pendientes |
+| **Login** | `POST /api/v1/auth/login` | Obtiene un token JWT para usuarios admin o recruiter |
+| **Perfil actual** | `GET /api/v1/auth/me` | Consulta el usuario autenticado |
 
 ---
 
@@ -283,8 +285,8 @@ python scripts/verify_step6_e2e.py
 1. **Crear Convocatoria Laboral**:
    - El reclutador define el cargo, modalidad, descripción y criterios clave: habilidades obligatorias (*must-have*), habilidades deseadas (*nice-to-have*) y requisitos generales.
 2. **Carga de Currículums**:
-   - Se suben los documentos en formato PDF mediante arrastrar y soltar o selector de archivos.
-   - El backend valida el archivo (firma PDF, tamaño `<= 10 MB`), genera un nombre único mediante UUID v4, almacena el archivo en disco y extrae el texto normalizado.
+   - Se suben los documentos en formato PDF o DOCX mediante arrastrar y soltar o selector de archivos.
+   - El backend valida el archivo, tamaño `<= 10 MB`, genera un nombre único mediante UUID v4, almacena el archivo en disco y extrae el texto normalizado desde párrafos, viñetas y tablas DOCX.
 3. **Evaluación Asistida por IA**:
    - Se envía a OpenRouter (`openrouter/free`) el conjunto de criterios del cargo junto con el texto extraído del currículum.
    - El prompt del sistema fuerza estricta objetividad, prohibiendo el uso de datos personales (edad, género, nacionalidad, fotografía, etc.) para el puntaje.
@@ -309,8 +311,8 @@ El sistema aplica umbrales objetivos y estandarizados para la recomendación:
 
 ## 9. Almacenamiento Local de Documentos
 
-- Los archivos PDF se almacenan localmente en la ruta `backend/storage/cvs/`.
-- Cada archivo recibe un nombre seguro basado en UUID (ejemplo: `f47ac10b-58cc-4372-a567-0e02b2c3d479.pdf`).
+- Los archivos PDF y DOCX se almacenan localmente en la ruta `backend/storage/cvs/`.
+- Cada archivo recibe un nombre seguro basado en UUID y conserva su extensión.
 - El nombre original proporcionado por el usuario (`original_filename`) se preserva únicamente como metadato en la base de datos.
 - Se implementan guardas anti *path-traversal* para asegurar que ningún archivo pueda ser leído ni escrito fuera del directorio designado.
 - El directorio de almacenamiento físico se encuentra explícitamente excluido del control de versiones en `.gitignore`.
@@ -321,8 +323,8 @@ El sistema aplica umbrales objetivos y estandarizados para la recomendación:
 
 Como prototipo académico (MVP), el sistema contempla explícitamente las siguientes limitaciones de alcance:
 
-- **Sin OCR**: La extracción de texto requiere PDFs de texto seleccionable. No procesa imágenes escaneadas ni aplica reconocimiento óptico de caracteres.
+- **Sin OCR**: La extracción de texto requiere PDFs de texto seleccionable o DOCX legibles. No procesa imágenes escaneadas ni aplica reconocimiento óptico de caracteres.
 - **Sin RAG ni Bases de Datos Vectoriales**: La evaluación se basa en el contexto directo enviado al modelo de lenguaje (`openrouter/free`), sin embeddings ni bases vectoriales externas.
-- **Sin Autenticación ni Roles**: Para efectos de demostración académica, no se incluye inicio de sesión, OAuth ni gestión de usuarios o permisos multi-inquilino (*multi-tenant*).
+- **Autenticación acotada al MVP**: JWT y roles `admin`/`recruiter` están integrados. No se incluye OAuth ni gestión multi-inquilino (*multi-tenant*).
 - **Almacenamiento Local**: Los archivos se guardan en el sistema de archivos del servidor backend (no en buckets en la nube como S3 o GCS).
 - **Sin Decisión Contractual**: La IA actúa exclusivamente como asistente consultivo; la decisión final de selección o contratación depende siempre de la evaluación humana.
