@@ -1,10 +1,12 @@
 import { NavLink, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   apiUrl: string;
 }
 
 export const Header = ({ apiUrl }: HeaderProps) => {
+  const { user, logout } = useAuth();
   return (
     <header className="w-full border-b border-[#EAEAEA] bg-white/90 backdrop-blur-sm sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -62,7 +64,9 @@ export const Header = ({ apiUrl }: HeaderProps) => {
           </NavLink>
 
           {/* Right Swagger API link */}
-          <div className="hidden md:flex items-center pl-2 ml-2 border-l border-[#EAEAEA]">
+          <div className="hidden md:flex items-center gap-2 pl-2 ml-2 border-l border-[#EAEAEA]">
+            {user && <span className="text-[11px] text-[#666666]">{user.email}</span>}
+            <button type="button" onClick={logout} className="text-xs text-[#555555] hover:text-[#111111]">Salir</button>
             <a
               href={`${apiUrl}/docs`}
               target="_blank"

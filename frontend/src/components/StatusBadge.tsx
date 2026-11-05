@@ -32,3 +32,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, customText }) 
     </span>
   );
 };
+
+export function CandidateStatusBadge({ status }: { status: 'PENDIENTE' | 'EN_REVISION' | 'DESCARTADO' | 'SELECCIONADO' }) {
+  const styles = {
+    PENDIENTE: 'bg-[#F7F6F3] text-[#666666] border-[#EAEAEA]',
+    EN_REVISION: 'bg-[#FEF7E6] text-[#8F6B00] border-[#FEEFC3]',
+    DESCARTADO: 'bg-[#FDEBEC] text-[#9F2F2D] border-[#F9D2D4]',
+    SELECCIONADO: 'bg-[#EBF5EC] text-[#28572E] border-[#D5EBD7]',
+  };
+  return <span className={`inline-flex px-2 py-1 rounded text-[10px] font-mono border ${styles[status]}`}>{status.replace('_', ' ')}</span>;
+}

@@ -7,9 +7,13 @@ import { JobOfferDetailPage } from './pages/JobOfferDetailPage';
 import { JobOfferEditPage } from './pages/JobOfferEditPage';
 import { SystemStatusPage } from './pages/SystemStatusPage';
 import { apiService } from './services/api';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
 
 export function App() {
   return (
+    <AuthProvider>
     <BrowserRouter>
       <div className="min-h-screen bg-[#FBFBFA] flex flex-col justify-between text-[#111111] selection:bg-[#111111] selection:text-white">
         {/* Navigation Header */}
@@ -18,6 +22,8 @@ export function App() {
         {/* Main Routed Content */}
         <main className="flex-grow flex flex-col">
           <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/job-offers" element={<JobOfferListPage />} />
@@ -26,6 +32,7 @@ export function App() {
             <Route path="/job-offers/:id/edit" element={<JobOfferEditPage />} />
             <Route path="/system-status" element={<SystemStatusPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Route>
           </Routes>
         </main>
 
@@ -43,6 +50,7 @@ export function App() {
         </footer>
       </div>
     </BrowserRouter>
+    </AuthProvider>
   );
 }
 

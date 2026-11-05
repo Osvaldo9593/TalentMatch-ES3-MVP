@@ -1,6 +1,7 @@
 import { CandidateEvaluationSummary } from './candidateEvaluation';
 
 export type CandidateCVStatus = 'uploaded' | 'processing' | 'processed' | 'failed';
+export type ApplicationStatus = 'PENDIENTE' | 'EN_REVISION' | 'DESCARTADO' | 'SELECCIONADO';
 
 export interface CandidateCV {
   id: number;
@@ -11,6 +12,8 @@ export interface CandidateCV {
   mime_type: string;
   processing_status: CandidateCVStatus;
   error_message: string | null;
+  application_status?: ApplicationStatus;
+  extraction_status?: string;
   created_at: string;
   updated_at: string;
   message?: string;

@@ -119,6 +119,34 @@ VITE_API_URL=http://localhost:8000
 
 Sigue esta guía secuencial para levantar el sistema completo desde cero:
 
+### Autenticación y migraciones
+
+Después de instalar `backend/requirements.txt`, copia `backend/.env.example` a
+`backend/.env` y reemplaza `JWT_SECRET_KEY` y las contraseñas de seed por valores
+seguros. Ejecuta las migraciones y crea los usuarios iniciales:
+
+```bash
+cd backend
+alembic upgrade head
+python scripts/seed_users.py
+```
+
+El usuario `admin` puede actualizar estados y eliminar definitivamente CVs. El
+usuario `recruiter` puede operar el flujo normal y actualizar estados, pero no
+puede ejecutar purgas definitivas.
+
+### Pruebas
+
+```bash
+# Backend
+cd backend
+pytest -v
+
+# Frontend
+cd frontend
+npm run test
+```
+
 ### Paso 1: Levantar la Base de Datos con Docker
 
 Desde la raíz del proyecto (`TalentMatch/`):

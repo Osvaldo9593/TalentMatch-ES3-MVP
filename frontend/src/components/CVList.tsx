@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CandidateCV } from '../types/candidateCv';
 import { candidateCvService } from '../services/candidateCvService';
+import { ApplicationStatus } from '../types/candidateCv';
+import { CandidateStatusBadge } from './StatusBadge';
 
 interface CVListProps {
   cvs: CandidateCV[];
@@ -11,6 +13,9 @@ interface CVListProps {
   onViewDetail: (cvId: number) => void;
   onViewEvaluation: (cv: CandidateCV) => void;
   onCVsRefresh?: (cvs: CandidateCV[]) => void;
+  currentUserRole?: 'admin' | 'recruiter';
+  onStatusChange?: (cv: CandidateCV, status: ApplicationStatus) => Promise<void>;
+  onHardDelete?: (cv: CandidateCV) => void;
   onEvaluateCV?: (cv: CandidateCV) => void;
   onBatchEvaluate?: () => void;
 }
@@ -27,6 +32,9 @@ export const CVList: React.FC<CVListProps> = ({
   onViewDetail,
   onViewEvaluation,
   onCVsRefresh,
+  currentUserRole,
+  onStatusChange,
+  onHardDelete,
 }) => {
   const hasPendingEvaluations = cvs.some(
     (cv) => cv.processing_status === 'processed' && !cv.evaluation
@@ -386,6 +394,23 @@ export const CVList: React.FC<CVListProps> = ({
 
                       {/* Processing / Evaluation Status */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex flex-col items-start gap-1">
+                        <CandidateStatusBadge status={cv.application_status || 'PENDIENTE'} />
+                        {onStatusChange && (
+                          <select
+                            aria-label={`Estado de ${cv.original_filename}`}
+                            value={cv.application_status || 'PENDIENTE'}
+                            onChange={(event) => onStatusChange(cv, event.target.value as ApplicationStatus)}
+                            className="text-[10px] border border-[#EAEAEA] rounded px-1 py-0.5 bg-white"
+                          >
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="EN_REVISION">En revisión</option>
+                            <option value="DESCARTADO">Descartado</option>
+                            <option value="SELECCIONADO">Seleccionado</option>
+                          </select>
+                        )}
+                        </div>
+                        <div className="mt-1">
                         {isCurrentEvaluating ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium font-mono bg-[#FEF7E6] text-[#8F6B00] border border-[#FEEFC3]">
                             <div className="w-2.5 h-2.5 border-2 border-[#8F6B00] border-t-transparent rounded-full animate-spin" />
@@ -415,6 +440,7 @@ export const CVList: React.FC<CVListProps> = ({
                             Procesando CV con IA... ⏳
                           </span>
                         )}
+                        </div>
                       </td>
 
                       {/* Visual Score */}
@@ -478,6 +504,16 @@ export const CVList: React.FC<CVListProps> = ({
                               <span>Ver</span>
                             </button>
                           ) : null}
+                          {currentUserRole === 'admin' && onHardDelete && (
+                            <button
+                              type="button"
+                              onClick={() => onHardDelete(cv)}
+                              className="p-1.5 text-[#7F1D1D] hover:bg-[#FDEBEC] border border-transparent hover:border-[#F9D2D4] rounded transition-colors"
+                              title="Eliminar definitivamente este currículum"
+                            >
+                              🔥
+                            </button>
+                          )}
 
                           {/* Ver texto extraído */}
                           <button

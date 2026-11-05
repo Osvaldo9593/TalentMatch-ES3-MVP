@@ -50,6 +50,15 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_TIMEOUT_SECONDS: float = 30.0
 
+    # Authentication
+    JWT_SECRET_KEY: str = "change-this-development-secret"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ALGORITHM: str = "HS256"
+    SEED_ADMIN_EMAIL: str = "admin@guinezingenieria.cl"
+    SEED_ADMIN_PASSWORD: str = "change-me-admin"
+    SEED_RECRUITER_EMAIL: str = "recruiter@guinezingenieria.cl"
+    SEED_RECRUITER_PASSWORD: str = "change-me-recruiter"
+
     # AI Evaluation Settings
     MAX_CV_TEXT_LENGTH: int = 8000
     EVALUATION_SCORE_RECOMMENDED_THRESHOLD: int = 80

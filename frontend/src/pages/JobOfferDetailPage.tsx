@@ -12,10 +12,14 @@ import { CVUploadZone } from '../components/CVUploadZone';
 import { CVList } from '../components/CVList';
 import { CVTextPreviewModal } from '../components/CVTextPreviewModal';
 import { CVEvaluationDetailModal } from '../components/CVEvaluationDetailModal';
+import { ProcessingErrorPanel } from '../components/ProcessingErrorPanel';
+import { useAuth } from '../context/AuthContext';
+import { ApplicationStatus } from '../types/candidateCv';
 
 export const JobOfferDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, token } = useAuth();
 
   // Offer State
   const [offer, setOffer] = useState<JobOffer | null>(null);
@@ -32,6 +36,7 @@ export const JobOfferDetailPage: React.FC = () => {
   const [previewCvId, setPreviewCvId] = useState<number | null>(null);
   const [cvToDelete, setCvToDelete] = useState<CandidateCV | null>(null);
   const [isDeletingCV, setIsDeletingCV] = useState<boolean>(false);
+  const [cvToHardDelete, setCvToHardDelete] = useState<CandidateCV | null>(null);
 
   // AI Evaluation State
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState<boolean>(false);
@@ -118,6 +123,32 @@ export const JobOfferDetailPage: React.FC = () => {
     }
   };
 
+  const handleStatusChange = async (cv: CandidateCV, status: ApplicationStatus) => {
+    if (!token) return;
+    try {
+      const updated = await candidateCvService.updateStatus(cv.id, status, token);
+      setCvs((previous) => previous.map((item) => item.id === cv.id ? updated : item));
+      setToast({ message: 'Estado del candidato actualizado.', type: 'success' });
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'No fue posible actualizar el estado.', type: 'error' });
+    }
+  };
+
+  const handleHardDelete = async () => {
+    if (!cvToHardDelete || !token) return;
+    setIsDeletingCV(true);
+    try {
+      await candidateCvService.hardDelete(cvToHardDelete.id, token);
+      setCvs((previous) => previous.filter((item) => item.id !== cvToHardDelete.id));
+      setCvToHardDelete(null);
+      setToast({ message: 'CV eliminado definitivamente.', type: 'success' });
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'No fue posible eliminar definitivamente el CV.', type: 'error' });
+    } finally {
+      setIsDeletingCV(false);
+    }
+  };
+
   // Handler: Ver detalle de evaluación guardada
   const handleViewEvaluation = async (cv: CandidateCV) => {
     if (!offer) return;
@@ -185,6 +216,7 @@ export const JobOfferDetailPage: React.FC = () => {
           onClose={() => setToast(null)}
         />
       )}
+      <ProcessingErrorPanel cvs={cvs} />
 
       {/* Navigation Breadcrumb */}
       <div className="flex items-center justify-between">
@@ -412,6 +444,9 @@ export const JobOfferDetailPage: React.FC = () => {
             onViewDetail={(cvId) => setPreviewCvId(cvId)}
             onViewEvaluation={handleViewEvaluation}
             onCVsRefresh={setCvs}
+            currentUserRole={user?.role}
+            onStatusChange={handleStatusChange}
+            onHardDelete={setCvToHardDelete}
           />
         </div>
       </div>
@@ -440,6 +475,15 @@ export const JobOfferDetailPage: React.FC = () => {
         isLoading={isDeletingOffer}
         onConfirm={handleOfferDeleteConfirm}
         onCancel={() => setIsDeleteOfferModalOpen(false)}
+      />
+      <ConfirmModal
+        isOpen={Boolean(cvToHardDelete)}
+        title="Eliminar CV definitivamente"
+        message="Esta acción elimina el archivo, el registro y la evaluación asociada. No se puede deshacer."
+        confirmText="Eliminar definitivamente"
+        isLoading={isDeletingCV}
+        onCancel={() => setCvToHardDelete(null)}
+        onConfirm={handleHardDelete}
       />
 
       {/* Modal: Confirm deletion of CV */}

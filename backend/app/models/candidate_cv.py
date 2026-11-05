@@ -28,6 +28,19 @@ class CandidateCV(Base):
         index=True
     )
     error_message = Column(Text, nullable=True)
+    application_status = Column(
+        String(30),
+        nullable=False,
+        default="PENDIENTE",
+        server_default="PENDIENTE",
+        index=True,
+    )
+    extraction_status = Column(
+        String(30),
+        nullable=False,
+        default="PENDIENTE",
+        server_default="PENDIENTE",
+    )
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

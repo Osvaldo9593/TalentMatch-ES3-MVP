@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from app.schemas.candidate_evaluation import CandidateEvaluationSummary
 
 CandidateCVStatus = Literal["uploaded", "processing", "processed", "failed"]
+ApplicationStatus = Literal["PENDIENTE", "EN_REVISION", "DESCARTADO", "SELECCIONADO"]
 
 
 class CandidateCVBase(BaseModel):
@@ -15,6 +16,8 @@ class CandidateCVBase(BaseModel):
     mime_type: str = Field(default="application/pdf", description="Tipo MIME del documento")
     processing_status: CandidateCVStatus = Field(default="uploaded", description="Estado del procesamiento")
     error_message: Optional[str] = Field(default=None, description="Mensaje de error en caso de fallo en el procesamiento")
+    application_status: ApplicationStatus = "PENDIENTE"
+    extraction_status: str = "PENDIENTE"
     created_at: datetime
     updated_at: datetime
 

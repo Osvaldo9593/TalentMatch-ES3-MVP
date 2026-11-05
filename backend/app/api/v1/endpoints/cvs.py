@@ -6,10 +6,14 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.database import SessionLocal
+from app.api.deps import get_current_user, require_role
+from app.models.user import User
+from app.models.candidate_cv import CandidateCV
 from app.services.job_offer_service import job_offer_service
 from app.services.cv_service import cv_service
 from app.services.cv_classifier_service import cv_classifier_service
 from app.schemas.candidate_evaluation import CandidateEvaluationResponse
+from app.schemas.candidate_status import CandidateStatusUpdate
 from app.schemas.candidate_cv import (
     CandidateCVResponse,
     CandidateCVListResponse,
@@ -18,6 +22,7 @@ from app.schemas.candidate_cv import (
 )
 
 router = APIRouter()
+actions_router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
@@ -225,3 +230,53 @@ def get_candidate_cv_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al acceder al archivo: {str(e)}",
         ) from e
+
+
+@actions_router.patch(
+    "/{cv_id}/status",
+    response_model=CandidateCVResponse,
+    summary="Actualizar el estado de postulación de un CV",
+)
+def update_candidate_status(
+    cv_id: int,
+    payload: CandidateStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cv_obj = db.query(CandidateCV).filter(CandidateCV.id == cv_id).first()
+    if not cv_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CV no encontrado")
+    cv_obj.application_status = payload.status
+    db.commit()
+    db.refresh(cv_obj)
+    return cv_obj
+
+
+@actions_router.delete(
+    "/{cv_id}/hard-delete",
+    response_model=CandidateCVDeleteResponse,
+    summary="Eliminar definitivamente un CV",
+)
+def hard_delete_candidate_cv(
+    cv_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(["admin"])),
+):
+    cv_obj = db.query(CandidateCV).filter(CandidateCV.id == cv_id).first()
+    if not cv_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CV no encontrado")
+    try:
+        cv_service.delete_cv(db, cv_obj=cv_obj)
+        logger.info("Eliminación definitiva completada para el CV id=%s", cv_id)
+        return CandidateCVDeleteResponse(
+            message="CV eliminado definitivamente",
+            id=cv_id,
+            success=True,
+        )
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Error en eliminación definitiva del CV id=%s", cv_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No fue posible eliminar definitivamente el CV",
+        ) from exc

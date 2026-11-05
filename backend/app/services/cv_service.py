@@ -7,6 +7,7 @@ from sqlalchemy import desc
 
 from app.core.config import settings
 from app.models.candidate_cv import CandidateCV
+from app.models.candidate_evaluation import CandidateEvaluation
 from app.services.pdf_service import pdf_service
 
 
@@ -86,9 +87,11 @@ class CVService:
         if extracted_text and not extract_error:
             processing_status = "processed"
             error_message = None
+            extraction_status = "OK"
         else:
             processing_status = "failed"
             error_message = extract_error or "No se pudo extraer texto del documento."
+            extraction_status = "ERROR_FORMATO"
 
         # 8. Create and persist database entity
         relative_file_path = f"{settings.CV_STORAGE_PATH}/{stored_filename}"
@@ -102,6 +105,7 @@ class CVService:
             extracted_text=extracted_text,
             processing_status=processing_status,
             error_message=error_message,
+            extraction_status=extraction_status,
         )
 
         try:
@@ -160,7 +164,11 @@ class CVService:
         # Determine physical file path
         target_path = self.get_absolute_path(cv_obj.stored_filename)
 
-        # Delete database record
+        # Delete the dependent evaluation explicitly so purge works consistently
+        # across PostgreSQL and SQLite test databases.
+        db.query(CandidateEvaluation).filter(CandidateEvaluation.cv_id == cv_obj.id).delete(
+            synchronize_session=False
+        )
         db.delete(cv_obj)
         db.commit()
 
