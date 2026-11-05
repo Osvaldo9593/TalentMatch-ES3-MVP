@@ -231,7 +231,7 @@ Desde la carpeta `backend/`:
 ```bash
 pytest -v
 ```
-*(52 pruebas unitarias y de integración que verifican endpoints, esquemas, reglas de validación, DOCX y modelos).*
+*(53 pruebas unitarias y de integración que verifican endpoints, esquemas, reglas de validación, DOCX y modelos).*
 
 ### Pruebas del Frontend (vitest)
 Desde la carpeta `frontend/`:
